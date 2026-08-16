@@ -10,3 +10,21 @@ venv/
 # SQLite
 *.db
 instance/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Env
+.env
+.env.local
