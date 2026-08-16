@@ -28,7 +28,6 @@ node_modules/
 # Env
 .env
 .env.local
-.claude/hooks/
 
 # ── Override do ~/.gitignore_global ──
 # A skill é o entregável principal do desafio — precisa ser versionada
