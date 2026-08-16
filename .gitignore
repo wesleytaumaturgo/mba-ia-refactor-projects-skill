@@ -29,3 +29,16 @@ node_modules/
 .env
 .env.local
 .claude/hooks/
+
+# ── Override do ~/.gitignore_global ──
+# A skill é o entregável principal do desafio — precisa ser versionada
+!.claude/
+!**/.claude/
+
+# ...mas os hooks são workaround do ambiente local, não entregável
+.claude/hooks/
+**/.claude/hooks/
+.claude/settings.local.json
+
+# Artefatos de processo — evidenciam o método nas seções B e C do README
+!.planning/
