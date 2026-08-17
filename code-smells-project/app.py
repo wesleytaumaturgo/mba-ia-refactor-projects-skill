@@ -1,12 +1,34 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import controllers
+import database
+from config import load_settings
 from database import get_db
+from middlewares.auth import POLITICAS_PADRAO, PoliticaDeAcesso
+from middlewares.rate_limit import LimitadorDeTaxa
+from observability.logger import build_logger
+from security import password
+
+settings = load_settings()
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "minha-chave-super-secreta-123"
-app.config["DEBUG"] = True
+app.config["SECRET_KEY"] = settings.secret_key
+app.config["DEBUG"] = settings.debug
+database.configure(settings)
+password.configure(settings.password_cost_log2)
+
+log = build_logger(settings.log_level)
+limitador_login = LimitadorDeTaxa(settings.login_rate_limit, settings.login_rate_window_seconds)
+politica_de_acesso = PoliticaDeAcesso(settings, POLITICAS_PADRAO)
+controllers.configure(settings, limitador_login, log)
+
 CORS(app)
+
+
+@app.before_request
+def _verificar_acesso():
+    """Negar por padrão: nenhum handler roda antes desta verificação."""
+    return politica_de_acesso.aplicar()
 
 app.add_url_rule("/produtos", "listar_produtos", controllers.listar_produtos, methods=["GET"])
 app.add_url_rule("/produtos/busca", "buscar_produtos", controllers.buscar_produtos, methods=["GET"])
@@ -53,36 +75,17 @@ def reset_database():
     cursor.execute("DELETE FROM produtos")
     cursor.execute("DELETE FROM usuarios")
     db.commit()
-    print("!!! BANCO DE DADOS RESETADO !!!")
+    log.warning("banco_resetado", resultado="todas_as_tabelas_apagadas")
     return jsonify({"mensagem": "Banco de dados resetado", "sucesso": True}), 200
 
-@app.route("/admin/query", methods=["POST"])
-def executar_query():
-    dados = request.get_json()
-    query = dados.get("sql", "")
-    if not query:
-        return jsonify({"erro": "Query não informada"}), 400
-
-    db = get_db()
-    cursor = db.cursor()
-    try:
-        cursor.execute(query)
-        if query.strip().upper().startswith("SELECT"):
-            rows = cursor.fetchall()
-            result = [dict(row) for row in rows]
-            return jsonify({"dados": result, "sucesso": True}), 200
-        else:
-            db.commit()
-            return jsonify({"mensagem": "Query executada", "sucesso": True}), 200
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+# POST /admin/query foi REMOVIDO por TR-02 (finding F-008, breaking change BC-3).
+# Executava SQL arbitrário recebido no corpo da requisição; a superfície era o defeito,
+# então não havia como fechá-lo preservando a rota. Operação administrativa legítima
+# pertence a script de manutenção fora da superfície HTTP.
 
 if __name__ == "__main__":
 
     get_db()
-    print("=" * 50)
-    print("SERVIDOR INICIADO")
-    print("Rodando em http://localhost:5000")
-    print("=" * 50)
+    log.info("servidor_iniciado", host=settings.host, port=settings.port, ambiente=settings.environment)
 
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host=settings.host, port=settings.port, debug=settings.debug)

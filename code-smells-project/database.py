@@ -1,12 +1,21 @@
 import sqlite3
 import os
 
+from security.password import hash_password
+
 db_connection = None
-db_path = "loja.db"
+db_path = None
+
+def configure(settings):
+    """Recebe do composition root o destino do banco. Nenhum literal sobrevive aqui."""
+    global db_path
+    db_path = settings.db_path
 
 def get_db():
     global db_connection
     if db_connection is None:
+        if db_path is None:
+            raise RuntimeError("database.configure(settings) precisa rodar antes de get_db()")
         db_connection = sqlite3.connect(db_path, check_same_thread=False)
         db_connection.row_factory = sqlite3.Row
         cursor = db_connection.cursor()
@@ -79,7 +88,7 @@ def get_db():
             ]
             cursor.executemany(
                 "INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)",
-                usuarios
+                [(nome, email, hash_password(senha), tipo) for nome, email, senha, tipo in usuarios]
             )
             db_connection.commit()
 

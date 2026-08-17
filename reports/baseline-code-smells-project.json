@@ -1,0 +1,328 @@
+[
+  {
+    "method": "GET",
+    "path": "/",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "endpoints": {
+        "health": "string",
+        "login": "string",
+        "pedidos": "string",
+        "produtos": "string",
+        "relatorios": "string",
+        "usuarios": "string"
+      },
+      "mensagem": "string",
+      "versao": "string"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/health",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "ambiente": "string",
+      "counts": {
+        "pedidos": "number",
+        "produtos": "number",
+        "usuarios": "number"
+      },
+      "database": "string",
+      "db_path": "string",
+      "debug": "boolean",
+      "secret_key": "string",
+      "status": "string",
+      "versao": "string"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/produtos",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "__array__": {
+          "ativo": "number",
+          "categoria": "string",
+          "criado_em": "string",
+          "descricao": "string",
+          "estoque": "number",
+          "id": "number",
+          "nome": "string",
+          "preco": "number"
+        }
+      },
+      "sucesso": "boolean"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/produtos/1",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "ativo": "number",
+        "categoria": "string",
+        "criado_em": "string",
+        "descricao": "string",
+        "estoque": "number",
+        "id": "number",
+        "nome": "string",
+        "preco": "number"
+      },
+      "sucesso": "boolean"
+    },
+    "note": "path param: existing id"
+  },
+  {
+    "method": "GET",
+    "path": "/produtos/busca?q=mouse",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "__array__": {
+          "ativo": "number",
+          "categoria": "string",
+          "criado_em": "string",
+          "descricao": "string",
+          "estoque": "number",
+          "id": "number",
+          "nome": "string",
+          "preco": "number"
+        }
+      },
+      "sucesso": "boolean",
+      "total": "number"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/usuarios",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "__array__": {
+          "criado_em": "string",
+          "email": "string",
+          "id": "number",
+          "nome": "string",
+          "senha": "string",
+          "tipo": "string"
+        }
+      },
+      "sucesso": "boolean"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/usuarios/1",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "criado_em": "string",
+        "email": "string",
+        "id": "number",
+        "nome": "string",
+        "senha": "string",
+        "tipo": "string"
+      },
+      "sucesso": "boolean"
+    },
+    "note": "path param: existing id"
+  },
+  {
+    "method": "POST",
+    "path": "/usuarios",
+    "status": 201,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "id": "number"
+      },
+      "sucesso": "boolean"
+    },
+    "note": "write"
+  },
+  {
+    "method": "POST",
+    "path": "/login",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "email": "string",
+        "id": "number",
+        "nome": "string",
+        "tipo": "string"
+      },
+      "mensagem": "string",
+      "sucesso": "boolean"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/produtos",
+    "status": 201,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "id": "number"
+      },
+      "mensagem": "string",
+      "sucesso": "boolean"
+    },
+    "note": "write; creates id 11"
+  },
+  {
+    "method": "PUT",
+    "path": "/produtos/11",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "mensagem": "string",
+      "sucesso": "boolean"
+    },
+    "note": "write; disposable row"
+  },
+  {
+    "method": "POST",
+    "path": "/pedidos",
+    "status": 201,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "pedido_id": "number",
+        "total": "number"
+      },
+      "mensagem": "string",
+      "sucesso": "boolean"
+    },
+    "note": "write; creates order 1"
+  },
+  {
+    "method": "GET",
+    "path": "/pedidos",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "__array__": {
+          "criado_em": "string",
+          "id": "number",
+          "itens": {
+            "__array__": {
+              "preco_unitario": "number",
+              "produto_id": "number",
+              "produto_nome": "string",
+              "quantidade": "number"
+            }
+          },
+          "status": "string",
+          "total": "number",
+          "usuario_id": "number"
+        }
+      },
+      "sucesso": "boolean"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/pedidos/usuario/2",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "__array__": {
+          "criado_em": "string",
+          "id": "number",
+          "itens": {
+            "__array__": {
+              "preco_unitario": "number",
+              "produto_id": "number",
+              "produto_nome": "string",
+              "quantidade": "number"
+            }
+          },
+          "status": "string",
+          "total": "number",
+          "usuario_id": "number"
+        }
+      },
+      "sucesso": "boolean"
+    }
+  },
+  {
+    "method": "PUT",
+    "path": "/pedidos/1/status",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "mensagem": "string",
+      "sucesso": "boolean"
+    },
+    "note": "write"
+  },
+  {
+    "method": "GET",
+    "path": "/relatorios/vendas",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "desconto_aplicavel": "number",
+        "faturamento_bruto": "number",
+        "faturamento_liquido": "number",
+        "pedidos_aprovados": "number",
+        "pedidos_cancelados": "number",
+        "pedidos_pendentes": "number",
+        "ticket_medio": "number",
+        "total_pedidos": "number"
+      },
+      "sucesso": "boolean"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/produtos/11",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "mensagem": "string",
+      "sucesso": "boolean"
+    },
+    "note": "destructive; disposable row created above"
+  },
+  {
+    "method": "POST",
+    "path": "/admin/query",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "dados": {
+        "__array__": {
+          "total": "number"
+        }
+      },
+      "sucesso": "boolean"
+    },
+    "note": "privileged; read-only SQL used to avoid data loss"
+  },
+  {
+    "method": "POST",
+    "path": "/admin/reset-db",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "mensagem": "string",
+      "sucesso": "boolean"
+    },
+    "note": "DESTRUCTIVE; ran last"
+  }
+]
