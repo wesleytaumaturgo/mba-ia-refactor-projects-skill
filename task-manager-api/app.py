@@ -3,8 +3,6 @@
 É o único lugar do projeto autorizado a instanciar infraestrutura. Nenhuma camada
 abaixo resolve dependência no próprio corpo — todas as recebem por parâmetro.
 """
-import datetime
-
 from flask import Flask
 from flask_cors import CORS
 from sqlalchemy import event
@@ -34,7 +32,9 @@ from services.report_service import ReportService
 from services.task_service import TaskService
 from services.user_service import UserService
 from validators.category_validator import CategoryValidator
+from validators.pagination import Pagination
 from validators.task_validator import TaskValidator
+from utils.helpers import format_date, utc_now
 from validators.user_validator import UserValidator
 
 
@@ -47,7 +47,12 @@ def create_app(settings=None):
     app.config['SECRET_KEY'] = settings.secret_key
     app.config['SETTINGS'] = settings
 
-    CORS(app)
+    # Allowlist de origens vinda do ambiente, por método — não o padrão permissivo global.
+    CORS(app,
+         origins=settings.cors_origins,
+         methods=['GET', 'POST', 'PUT', 'DELETE'],
+         allow_headers=['Content-Type', 'Authorization'],
+         supports_credentials=False)
     db.init_app(app)
 
     # SQLite não aplica chave estrangeira por padrão: ligar o pragma é o que torna a
@@ -79,10 +84,12 @@ def create_app(settings=None):
                                        unit_of_work, CategoryValidator())
     report_service = ReportService(task_repository, user_repository, category_repository)
 
-    app.register_blueprint(register_task_routes(TaskController(task_service)))
+    pagination = Pagination(settings.page_size_default, settings.page_size_max)
+
+    app.register_blueprint(register_task_routes(TaskController(task_service, pagination)))
     app.register_blueprint(register_user_routes(
-        UserController(user_service, task_service, rate_limiter)))
-    app.register_blueprint(register_category_routes(CategoryController(category_service)))
+        UserController(user_service, task_service, rate_limiter, pagination)))
+    app.register_blueprint(register_category_routes(CategoryController(category_service, pagination)))
     app.register_blueprint(register_report_routes(ReportController(report_service)))
 
     # Negar por padrão: toda rota exige credencial, exceto as marcadas com @public.
@@ -94,7 +101,7 @@ def create_app(settings=None):
     @app.route('/health')
     @public
     def health():
-        return {'status': 'ok', 'timestamp': str(datetime.datetime.now())}
+        return {'status': 'ok', 'timestamp': format_date(utc_now())}
 
     @app.route('/')
     @public

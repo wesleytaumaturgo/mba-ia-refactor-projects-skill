@@ -7,6 +7,7 @@ from functools import wraps
 
 from flask import current_app, g, jsonify, request
 
+from database import db
 from models.user import User
 from security.tokens import TokenError, verify_token
 
@@ -26,11 +27,13 @@ def public(view):
 
 
 def _unauthorized(message):
-    return jsonify({'error': message}), 401
+    from middlewares.error_handler import envelope
+    return jsonify(envelope('unauthorized', message)), 401
 
 
 def _forbidden(message):
-    return jsonify({'error': message}), 403
+    from middlewares.error_handler import envelope
+    return jsonify(envelope('forbidden', message)), 403
 
 
 def _bearer_token():
@@ -57,7 +60,7 @@ def authenticate_request():
     except TokenError as exc:
         return _unauthorized(str(exc))
 
-    user = User.query.get(payload['sub'])
+    user = db.session.get(User, payload['sub'])
     if user is None:
         return _unauthorized('Credencial inválida')
     if not user.active:

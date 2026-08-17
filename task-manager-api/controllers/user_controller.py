@@ -1,28 +1,31 @@
 """Tradução protocolo ↔ domínio para User, incluindo o fluxo de autenticação."""
-from datetime import datetime
 
-from flask import current_app, jsonify, request
+from utils.helpers import utc_now
+
+from flask import jsonify, request
 
 from dto.task_dto import task_summary_for_user
 from dto.user_dto import user_detail, user_identity, user_list_item, user_public
 from middlewares.auth import is_admin
-from services.errors import PermissionDenied
+from middlewares.error_handler import envelope
 
 
 class UserController:
-    def __init__(self, user_service, task_service, rate_limiter):
+    def __init__(self, user_service, task_service, rate_limiter, pagination):
         self._users = user_service
         self._tasks = task_service
         self._rate_limiter = rate_limiter
+        self._pagination = pagination
 
     def list_users(self):
-        return jsonify([user_list_item(u, count)
-                        for u, count in self._users.list_users()]), 200
+        limit, offset = self._pagination.from_request(request.args)
+        return jsonify([user_list_item(u)
+                        for u in self._users.list_users(limit=limit, offset=offset)]), 200
 
     def get_user(self, user_id):
         user = self._users.get_user(user_id)
         tasks = self._tasks.list_tasks_of_user(user_id)
-        now = datetime.utcnow()
+        now = utc_now()
         return jsonify(user_detail(user, [_task_detail(t, now) for t in tasks])), 200
 
     def create_user(self):
@@ -40,9 +43,10 @@ class UserController:
         return jsonify({'message': 'Usuário deletado com sucesso'}), 200
 
     def list_user_tasks(self, user_id):
+        limit, offset = self._pagination.from_request(request.args)
         self._users.get_user(user_id)
-        now = datetime.utcnow()
-        tasks = self._tasks.list_tasks_of_user(user_id)
+        now = utc_now()
+        tasks = self._tasks.list_tasks_of_user(user_id, limit=limit, offset=offset)
         return jsonify([task_summary_for_user(t, now) for t in tasks]), 200
 
     def login(self):
@@ -54,8 +58,9 @@ class UserController:
         origin_key = f'ip:{request.remote_addr}'
         allowed, retry_after = self._rate_limiter.check(subject_key, origin_key)
         if not allowed:
-            response = jsonify({'error': 'Muitas tentativas de login. '
-                                         'Tente novamente mais tarde.'})
+            response = jsonify(envelope('too_many_requests',
+                                        'Muitas tentativas de login. '
+                                        'Tente novamente mais tarde.'))
             response.headers['Retry-After'] = str(retry_after)
             return response, 429
 

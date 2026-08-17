@@ -1,0 +1,34 @@
+# Regra de linter que impede a REGRESSÃO das chamadas deprecated corrigidas em TR-12.
+# Sem ela, a chamada volta na próxima contribuição — a ausência de linter é o que
+# explicava a sobrevivência das 34 ocorrências até a auditoria.
+
+target-version = "py312"
+line-length = 100
+
+exclude = [".claude", "migrations", "instance", "__pycache__"]
+
+[lint]
+select = [
+    "F",     # pyflakes — imports e nomes não usados
+    "E",     # pycodestyle
+    "DTZ",   # flake8-datetimez — barra datetime.utcnow() (DTZ003) e afins
+    "TID",   # imports banidos, configurados abaixo
+]
+
+ignore = [
+    "E501",  # comprimento de linha já governado por line-length
+]
+
+# `utils.helpers.utc_now()` é o único lugar autorizado a produzir o instante atual:
+# ele encapsula a semântica naive-UTC que as colunas DATETIME do schema exigem.
+[lint.per-file-ignores]
+# utc_now() é o único autorizado a produzir o instante atual; a semântica naive-UTC
+# que ele encapsula é exigida pelas colunas DATETIME do schema.
+"utils/helpers.py" = ["DTZ005"]
+# due_date é uma data de calendário sem fuso, por contrato de API (YYYY-MM-DD).
+# Exigir %z aqui rejeitaria a entrada que o baseline aceita.
+"validators/base.py" = ["DTZ007"]
+
+[lint.flake8-tidy-imports.banned-api]
+"datetime.datetime.utcnow".msg = "Deprecado no Python 3.12. Use utils.helpers.utc_now()."
+"datetime.datetime.utcfromtimestamp".msg = "Deprecado no Python 3.12. Use datetime.fromtimestamp(ts, tz=timezone.utc)."

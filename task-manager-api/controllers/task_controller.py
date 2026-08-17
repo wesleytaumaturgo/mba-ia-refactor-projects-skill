@@ -1,5 +1,6 @@
 """Tradução protocolo ↔ domínio para Task. Parse, chama o service, mapeia a resposta."""
-from datetime import datetime
+
+from utils.helpers import utc_now
 
 from flask import jsonify, request
 
@@ -7,12 +8,14 @@ from dto.task_dto import task_list_item, task_public, task_with_overdue
 
 
 class TaskController:
-    def __init__(self, task_service):
+    def __init__(self, task_service, pagination):
         self._service = task_service
+        self._pagination = pagination
 
     def list_tasks(self):
-        now = datetime.utcnow()
-        tasks = self._service.list_tasks()
+        limit, offset = self._pagination.from_request(request.args)
+        now = utc_now()
+        tasks = self._service.list_tasks(limit=limit, offset=offset)
         return jsonify([task_list_item(t, now) for t in tasks]), 200
 
     def get_task(self, task_id):
@@ -32,11 +35,13 @@ class TaskController:
         return jsonify({'message': 'Task deletada com sucesso'}), 200
 
     def search_tasks(self):
+        limit, offset = self._pagination.from_request(request.args)
         tasks = self._service.search(
             text=request.args.get('q', ''),
             status=request.args.get('status', ''),
             priority=request.args.get('priority', ''),
             user_id=request.args.get('user_id', ''),
+            limit=limit, offset=offset,
         )
         return jsonify([task_public(t) for t in tasks]), 200
 

@@ -1,5 +1,6 @@
 from database import db
-from datetime import datetime
+
+from utils.helpers import utc_now
 
 class Category(db.Model):
     __tablename__ = 'categories'
@@ -10,4 +11,4 @@ class Category(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(300), nullable=True)
     color = db.Column(db.String(7), nullable=False, default=DEFAULT_COLOR)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)

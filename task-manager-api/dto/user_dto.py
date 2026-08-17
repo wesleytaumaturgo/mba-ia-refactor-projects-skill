@@ -4,6 +4,7 @@ A credencial NUNCA atravessa esta fronteira. A projeção é por allowlist e nã
 remoção de chaves: assim o próximo campo sensível adicionado à entidade não entra
 sozinho na resposta.
 """
+from utils.helpers import format_date
 
 
 def user_public(user):
@@ -14,14 +15,13 @@ def user_public(user):
         'email': user.email,
         'role': user.role,
         'active': user.active,
-        'created_at': str(user.created_at),
+        'created_at': format_date(user.created_at),
     }
 
 
-def user_list_item(user, task_count):
-    data = user_public(user)
-    data['task_count'] = task_count
-    return data
+def user_list_item(user):
+    """Item da coleção — MESMA forma do detalhe, sem o derivado `task_count` (BC-6)."""
+    return user_public(user)
 
 
 def user_detail(user, tasks):

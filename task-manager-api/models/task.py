@@ -1,5 +1,6 @@
 from database import db
-from datetime import datetime
+
+from utils.helpers import utc_now
 
 class Task(db.Model):
     __tablename__ = 'tasks'
@@ -19,9 +20,9 @@ class Task(db.Model):
     priority = db.Column(db.Integer, nullable=False, default=3)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id', ondelete='SET NULL'), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow,
-                           onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now,
+                           onupdate=utc_now)
     due_date = db.Column(db.DateTime, nullable=True)
     tags = db.Column(db.String(500), nullable=True)
 
@@ -40,5 +41,5 @@ class Task(db.Model):
         """Regra de domínio única: vencida e ainda não terminal."""
         if not self.due_date:
             return False
-        return (self.due_date < (now or datetime.utcnow())
+        return (self.due_date < (now or utc_now())
                 and self.status not in self.TERMINAL_STATUSES)

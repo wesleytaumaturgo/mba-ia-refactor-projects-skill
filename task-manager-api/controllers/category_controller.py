@@ -5,12 +5,15 @@ from dto.category_dto import category_list_item, category_public
 
 
 class CategoryController:
-    def __init__(self, category_service):
+    def __init__(self, category_service, pagination):
         self._service = category_service
+        self._pagination = pagination
 
     def list_categories(self):
+        limit, offset = self._pagination.from_request(request.args)
         return jsonify([category_list_item(c, count)
-                        for c, count in self._service.list_categories()]), 200
+                        for c, count in self._service.list_categories(limit=limit,
+                                                                     offset=offset)]), 200
 
     def create_category(self):
         category = self._service.create_category(request.get_json(silent=True))

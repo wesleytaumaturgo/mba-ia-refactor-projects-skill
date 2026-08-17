@@ -1,7 +1,6 @@
 """Acesso a dados do agregado Task — único lugar que conhece o ORM para esta entidade."""
-from datetime import datetime
 
-from sqlalchemy.orm import joinedload
+from utils.helpers import utc_now
 
 from models.task import Task
 
@@ -15,8 +14,7 @@ class TaskRepository:
         return self._db.session.get(Task, task_id)
 
     def list_all(self, limit=None, offset=None):
-        query = Task.query.options(joinedload(Task.user), joinedload(Task.category))
-        query = query.order_by(Task.id)
+        query = Task.query.order_by(Task.id)
         if offset:
             query = query.offset(offset)
         if limit is not None:
@@ -87,11 +85,11 @@ class TaskRepository:
                              Task.status.notin_(Task.TERMINAL_STATUSES))
 
     def count_overdue(self, now=None):
-        now = now or datetime.utcnow()
+        now = now or utc_now()
         return Task.query.filter(self._overdue_filter(now)).count()
 
     def list_overdue(self, now=None):
-        now = now or datetime.utcnow()
+        now = now or utc_now()
         return Task.query.filter(self._overdue_filter(now)).order_by(Task.due_date).all()
 
     def count_created_since(self, moment):

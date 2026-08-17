@@ -2,10 +2,11 @@
 
 Não importa nenhum símbolo de protocolo — a regra vale igual sob HTTP ou sob uma fila.
 """
-from datetime import datetime
+
+from utils.helpers import utc_now
 
 from models.task import Task
-from services.errors import NotFound, ValidationError
+from services.errors import NotFound
 
 
 class TaskService:
@@ -41,7 +42,7 @@ class TaskService:
         )
 
     def statistics(self, now=None):
-        now = now or datetime.utcnow()
+        now = now or utc_now()
         by_status = self._tasks.count_by_status()
         total = self._tasks.count()
         done = by_status.get('done', 0)
@@ -82,7 +83,7 @@ class TaskService:
         with self._uow.transaction():
             for field, value in data.items():
                 setattr(task, field, value)
-            task.updated_at = datetime.utcnow()
+            task.updated_at = utc_now()
         return task
 
     def delete_task(self, task_id):

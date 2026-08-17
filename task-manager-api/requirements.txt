@@ -1,3 +1,5 @@
+# Runtime mínimo: Python 3.12 (a versão contra a qual TR-12 verificou as
+# chamadas deprecated). Ver também .python-version.
 flask==3.0.0
 flask-sqlalchemy==3.1.1
 flask-cors==4.0.0

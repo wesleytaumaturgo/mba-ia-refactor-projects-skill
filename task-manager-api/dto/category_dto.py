@@ -1,4 +1,5 @@
 """Projeção de saída para Category — allowlist explícita."""
+from utils.helpers import format_date
 
 
 def category_public(category):
@@ -7,7 +8,7 @@ def category_public(category):
         'name': category.name,
         'description': category.description,
         'color': category.color,
-        'created_at': str(category.created_at),
+        'created_at': format_date(category.created_at),
     }
 
 

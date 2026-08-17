@@ -3,7 +3,9 @@
 Todas as contagens são expressas na própria consulta (GROUP BY / WHERE), não em laço
 sobre a tabela inteira carregada em memória.
 """
-from datetime import datetime, timedelta
+from datetime import timedelta
+
+from utils.helpers import utc_now
 
 from services.errors import NotFound
 from services.task_service import completion_rate
@@ -22,7 +24,7 @@ class ReportService:
         self._categories = category_repository
 
     def summary(self, now=None):
-        now = now or datetime.utcnow()
+        now = now or utc_now()
         by_status = self._tasks.count_by_status()
         by_priority = self._tasks.count_by_priority()
         overdue = self._tasks.list_overdue(now)
@@ -64,7 +66,7 @@ class ReportService:
         }
 
     def user_report(self, user_id, now=None):
-        now = now or datetime.utcnow()
+        now = now or utc_now()
         user = self._users.get(user_id)
         if user is None:
             raise NotFound('Usuário não encontrado')

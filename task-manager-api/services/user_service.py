@@ -14,10 +14,7 @@ class UserService:
 
     # ── leitura ──────────────────────────────────────────────────────────────
     def list_users(self, limit=None, offset=None):
-        """Devolve (usuário, nº de tasks) sem disparar uma consulta por usuário."""
-        users = self._users.list_all(limit=limit, offset=offset)
-        counts = self._tasks.count_by_user()
-        return [(user, counts.get(user.id, 0)) for user in users]
+        return self._users.list_all(limit=limit, offset=offset)
 
     def get_user(self, user_id):
         user = self._users.get(user_id)

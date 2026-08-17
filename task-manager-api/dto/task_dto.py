@@ -1,4 +1,5 @@
 """Projeção de saída para Task — allowlist explícita, por contexto de resposta."""
+from utils.helpers import format_date
 
 
 def _tags(task):
@@ -15,9 +16,9 @@ def task_public(task):
         'priority': task.priority,
         'user_id': task.user_id,
         'category_id': task.category_id,
-        'created_at': str(task.created_at),
-        'updated_at': str(task.updated_at),
-        'due_date': str(task.due_date) if task.due_date else None,
+        'created_at': format_date(task.created_at),
+        'updated_at': format_date(task.updated_at),
+        'due_date': format_date(task.due_date),
         'tags': _tags(task),
     }
 
@@ -29,11 +30,13 @@ def task_with_overdue(task, now=None):
 
 
 def task_list_item(task, now=None):
-    """Item da coleção: forma canônica + atraso + nomes das entidades relacionadas."""
-    data = task_with_overdue(task, now)
-    data['user_name'] = task.user.name if task.user else None
-    data['category_name'] = task.category.name if task.category else None
-    return data
+    """Item da coleção — MESMA forma do detalhe (BC-5).
+
+    Os campos derivados `user_name` e `category_name` saíam daqui e não do detalhe,
+    o que dava duas representações do mesmo recurso (F-014). ND-4 escolheu alinhar a
+    coleção ao detalhe: elimina a divergência e o custo por item no mesmo movimento.
+    """
+    return task_with_overdue(task, now)
 
 
 def task_summary_for_user(task, now=None):
@@ -44,8 +47,8 @@ def task_summary_for_user(task, now=None):
         'description': task.description,
         'status': task.status,
         'priority': task.priority,
-        'created_at': str(task.created_at),
-        'due_date': str(task.due_date) if task.due_date else None,
+        'created_at': format_date(task.created_at),
+        'due_date': format_date(task.due_date),
         'overdue': task.is_overdue(now),
     }
 
@@ -54,6 +57,6 @@ def task_overdue_entry(task, now):
     return {
         'id': task.id,
         'title': task.title,
-        'due_date': str(task.due_date),
+        'due_date': format_date(task.due_date),
         'days_overdue': (now - task.due_date).days,
     }

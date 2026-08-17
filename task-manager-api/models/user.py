@@ -1,5 +1,6 @@
 from database import db
-from datetime import datetime
+
+from utils.helpers import utc_now
 
 from security.passwords import hash_password, needs_rehash, verify_password
 
@@ -15,7 +16,7 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(50), nullable=False, default='user')
     active = db.Column(db.Boolean, nullable=False, default=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
 
     @classmethod
     def is_valid_role(cls, role):
