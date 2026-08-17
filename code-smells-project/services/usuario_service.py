@@ -1,0 +1,41 @@
+import sqlite3
+
+from models import usuario as modelo_usuario
+from services.errors import Conflito, EntradaInvalida, NaoEncontrado
+
+
+class UsuarioService:
+    def __init__(self, db, usuario_repository, password_hasher):
+        self._db = db
+        self._repo = usuario_repository
+        self._hasher = password_hasher
+
+    def listar(self):
+        with self._db.connection() as conn:
+            return self._repo.listar(conn)
+
+    def buscar_por_id(self, usuario_id):
+        with self._db.connection() as conn:
+            usuario = self._repo.buscar_por_id(conn, usuario_id)
+        if usuario is None:
+            raise NaoEncontrado("Usuário não encontrado")
+        return usuario
+
+    def criar(self, nome, email, senha):
+        if not nome or not email or not senha:
+            raise EntradaInvalida("Nome, email e senha são obrigatórios")
+
+        with self._db.connection() as conn:
+            if self._repo.buscar_por_email(conn, email) is not None:
+                raise Conflito("E-mail já cadastrado")
+
+        try:
+            with self._db.transaction() as conn:
+                return self._repo.inserir(
+                    conn, nome, email, self._hasher.hash_password(senha),
+                    modelo_usuario.PAPEL_CLIENTE,
+                )
+        except sqlite3.IntegrityError:
+            # A constraint UNIQUE de TR-16 fecha a corrida que a verificação acima sozinha
+            # não fecha: dois cadastros simultâneos do mesmo e-mail.
+            raise Conflito("E-mail já cadastrado")
