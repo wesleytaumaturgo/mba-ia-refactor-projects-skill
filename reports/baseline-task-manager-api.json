@@ -1,0 +1,409 @@
+[
+  {
+    "method": "GET",
+    "path": "/",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "message": "string",
+      "version": "string"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/health",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "status": "string",
+      "timestamp": "string"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/tasks",
+    "status": 200,
+    "media": "application/json",
+    "shape": [
+      {
+        "category_id": "number",
+        "category_name": "string",
+        "created_at": "string",
+        "description": "string",
+        "due_date": "string",
+        "id": "number",
+        "overdue": "boolean",
+        "priority": "number",
+        "status": "string",
+        "tags": [
+          "<empty>"
+        ],
+        "title": "string",
+        "updated_at": "string",
+        "user_id": "number",
+        "user_name": "string"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/tasks/1",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "category_id": "number",
+      "created_at": "string",
+      "description": "string",
+      "due_date": "string",
+      "id": "number",
+      "overdue": "boolean",
+      "priority": "number",
+      "status": "string",
+      "tags": [
+        "<empty>"
+      ],
+      "title": "string",
+      "updated_at": "string",
+      "user_id": "number"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/tasks/search?q=API&status=pending",
+    "status": 200,
+    "media": "application/json",
+    "shape": [
+      {
+        "category_id": "number",
+        "created_at": "string",
+        "description": "string",
+        "due_date": "string",
+        "id": "number",
+        "priority": "number",
+        "status": "string",
+        "tags": [
+          "<empty>"
+        ],
+        "title": "string",
+        "updated_at": "string",
+        "user_id": "number"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/tasks/stats",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "cancelled": "number",
+      "completion_rate": "number",
+      "done": "number",
+      "in_progress": "number",
+      "overdue": "number",
+      "pending": "number",
+      "total": "number"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/users",
+    "status": 200,
+    "media": "application/json",
+    "shape": [
+      {
+        "active": "boolean",
+        "created_at": "string",
+        "email": "string",
+        "id": "number",
+        "name": "string",
+        "role": "string",
+        "task_count": "number"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/users/1",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "active": "boolean",
+      "created_at": "string",
+      "email": "string",
+      "id": "number",
+      "name": "string",
+      "password": "string",
+      "role": "string",
+      "tasks": [
+        {
+          "category_id": "number",
+          "created_at": "string",
+          "description": "string",
+          "due_date": "string",
+          "id": "number",
+          "priority": "number",
+          "status": "string",
+          "tags": [
+            "<empty>"
+          ],
+          "title": "string",
+          "updated_at": "string",
+          "user_id": "number"
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/users/1/tasks",
+    "status": 200,
+    "media": "application/json",
+    "shape": [
+      {
+        "created_at": "string",
+        "description": "string",
+        "due_date": "string",
+        "id": "number",
+        "overdue": "boolean",
+        "priority": "number",
+        "status": "string",
+        "title": "string"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/categories",
+    "status": 200,
+    "media": "application/json",
+    "shape": [
+      {
+        "color": "string",
+        "created_at": "string",
+        "description": "string",
+        "id": "number",
+        "name": "string",
+        "task_count": "number"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/reports/summary",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "generated_at": "string",
+      "overdue": {
+        "count": "number",
+        "tasks": [
+          {
+            "days_overdue": "number",
+            "due_date": "string",
+            "id": "number",
+            "title": "string"
+          }
+        ]
+      },
+      "overview": {
+        "total_categories": "number",
+        "total_tasks": "number",
+        "total_users": "number"
+      },
+      "recent_activity": {
+        "tasks_completed_last_7_days": "number",
+        "tasks_created_last_7_days": "number"
+      },
+      "tasks_by_priority": {
+        "critical": "number",
+        "high": "number",
+        "low": "number",
+        "medium": "number",
+        "minimal": "number"
+      },
+      "tasks_by_status": {
+        "cancelled": "number",
+        "done": "number",
+        "in_progress": "number",
+        "pending": "number"
+      },
+      "user_productivity": [
+        {
+          "completed_tasks": "number",
+          "completion_rate": "number",
+          "total_tasks": "number",
+          "user_id": "number",
+          "user_name": "string"
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/reports/user/1",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "statistics": {
+        "cancelled": "number",
+        "completion_rate": "number",
+        "done": "number",
+        "high_priority": "number",
+        "in_progress": "number",
+        "overdue": "number",
+        "pending": "number",
+        "total_tasks": "number"
+      },
+      "user": {
+        "email": "string",
+        "id": "number",
+        "name": "string"
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/login",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "message": "string",
+      "token": "string",
+      "user": {
+        "active": "boolean",
+        "created_at": "string",
+        "email": "string",
+        "id": "number",
+        "name": "string",
+        "password": "string",
+        "role": "string"
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/users",
+    "status": 201,
+    "media": "application/json",
+    "shape": {
+      "active": "boolean",
+      "created_at": "string",
+      "email": "string",
+      "id": "number",
+      "name": "string",
+      "password": "string",
+      "role": "string"
+    }
+  },
+  {
+    "method": "PUT",
+    "path": "/users/4",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "active": "boolean",
+      "created_at": "string",
+      "email": "string",
+      "id": "number",
+      "name": "string",
+      "password": "string",
+      "role": "string"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/categories",
+    "status": 201,
+    "media": "application/json",
+    "shape": {
+      "color": "string",
+      "created_at": "string",
+      "description": "string",
+      "id": "number",
+      "name": "string"
+    }
+  },
+  {
+    "method": "PUT",
+    "path": "/categories/5",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "color": "string",
+      "created_at": "string",
+      "description": "string",
+      "id": "number",
+      "name": "string"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tasks",
+    "status": 201,
+    "media": "application/json",
+    "shape": {
+      "category_id": "number",
+      "created_at": "string",
+      "description": "string",
+      "due_date": "string",
+      "id": "number",
+      "priority": "number",
+      "status": "string",
+      "tags": [
+        "string"
+      ],
+      "title": "string",
+      "updated_at": "string",
+      "user_id": "number"
+    }
+  },
+  {
+    "method": "PUT",
+    "path": "/tasks/11",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "category_id": "number",
+      "created_at": "string",
+      "description": "string",
+      "due_date": "string",
+      "id": "number",
+      "priority": "number",
+      "status": "string",
+      "tags": [
+        "string"
+      ],
+      "title": "string",
+      "updated_at": "string",
+      "user_id": "number"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/tasks/11",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "message": "string"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/categories/5",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "message": "string"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/users/4",
+    "status": 200,
+    "media": "application/json",
+    "shape": {
+      "message": "string"
+    }
+  }
+]
