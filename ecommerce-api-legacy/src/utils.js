@@ -1,11 +1,3 @@
-const config = {
-    dbUser: "admin_master",
-    dbPass: "senha_super_secreta_prod_123", 
-    paymentGatewayKey: "pk_live_1234567890abcdef",
-    smtpUser: "no-reply@fullcycle.com.br",
-    port: 3000
-};
-
 let globalCache = {};
 let totalRevenue = 0;
 
@@ -22,4 +14,4 @@ function badCrypto(pwd) {
     return hash.substring(0, 10);
 }
 
-module.exports = { config, logAndCache, badCrypto, globalCache, totalRevenue };
+module.exports = { logAndCache, badCrypto, globalCache, totalRevenue };
