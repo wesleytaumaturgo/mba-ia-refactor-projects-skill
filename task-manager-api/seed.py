@@ -1,5 +1,16 @@
-"""Script para popular o banco com dados iniciais"""
+"""Script para popular o banco com dados de demonstração.
+
+Execução manual e sob demanda — nunca no boot. Recusa-se a rodar em produção:
+as credenciais abaixo são de demonstração e não podem existir fora do ambiente local.
+
+uso:
+    python -m infra.migrator upgrade   # o schema precisa existir antes
+    python seed.py
+"""
+import sys
+
 from app import app, db
+from config import load_settings
 from models.task import Task
 from models.user import User
 from models.category import Category
@@ -96,4 +107,8 @@ def seed_data():
         print(f"  {Task.query.count()} tasks")
 
 if __name__ == '__main__':
+    settings = load_settings()
+    if settings.env == 'production':
+        print('Recusado: o seed carrega credenciais de demonstração e não roda em produção.')
+        sys.exit(1)
     seed_data()

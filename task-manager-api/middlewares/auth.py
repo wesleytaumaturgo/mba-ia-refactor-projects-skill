@@ -12,9 +12,17 @@ from security.tokens import TokenError, verify_token
 
 
 def public(view):
-    """Marca a rota como deliberadamente pública. Sem esta marca, a rota exige credencial."""
-    view.is_public = True
-    return view
+    """Marca a rota como deliberadamente pública. Sem esta marca, a rota exige credencial.
+
+    O view pode ser um método vinculado de controller, que não aceita atribuição de
+    atributo — por isso a marca vai numa função que o envolve.
+    """
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        return view(*args, **kwargs)
+
+    wrapper.is_public = True
+    return wrapper
 
 
 def _unauthorized(message):
