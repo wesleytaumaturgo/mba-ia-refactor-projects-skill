@@ -16,6 +16,7 @@ from controllers.relatorio_controller import RelatorioController
 from controllers.usuario_controller import UsuarioController
 from infra import migrator
 from infra.connection import Database
+from middlewares import error_handler
 from middlewares.auth import POLITICAS_PADRAO, PoliticaDeAcesso
 from middlewares.rate_limit import LimitadorDeTaxa
 from observability.logger import build_logger
@@ -61,13 +62,13 @@ def build_app(settings):
     )
     notificacao_service = NotificacaoService(log)
 
-    produto_service = ProdutoService(db, produto_repository)
-    usuario_service = UsuarioService(db, usuario_repository, password)
+    produto_service = ProdutoService(db, produto_repository, settings)
+    usuario_service = UsuarioService(db, usuario_repository, password, settings)
     auth_service = AuthService(
         db, usuario_repository, password, emitir, settings, limitador_login, log
     )
     pedido_service = PedidoService(
-        db, pedido_repository, produto_repository, notificacao_service
+        db, pedido_repository, produto_repository, notificacao_service, settings
     )
     relatorio_service = RelatorioService(db, pedido_repository, PoliticaDeDesconto())
     admin_service = AdminService(
@@ -84,7 +85,16 @@ def build_app(settings):
     app.config["SECRET_KEY"] = settings.secret_key
     app.config["DEBUG"] = settings.debug
 
-    CORS(app)
+    # Allowlist de origens vinda do ambiente (TR-01). Lista vazia = nenhuma origem
+    # liberada, em vez do padrão permissivo que cobria as rotas destrutivas (finding F-020).
+    CORS(
+        app,
+        origins=settings.allowed_origins,
+        methods=["GET", "POST", "PUT", "DELETE"],
+        allow_headers=["Content-Type", "Authorization"],
+    )
+
+    error_handler.registrar(app, log)
 
     politica_de_acesso = PoliticaDeAcesso(settings, POLITICAS_PADRAO)
 

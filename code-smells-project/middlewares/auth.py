@@ -8,8 +8,9 @@ A decisão de autorização consulta o papel que o schema já modelava (`usuario
 antes de TR-05, nenhuma decisão lia (finding F-002).
 """
 
-from flask import g, jsonify, request
+from flask import g, request
 
+from middlewares.error_handler import resposta_de_erro
 from security.tokens import TokenExpirado, TokenInvalido, verificar
 
 PUBLICA = "publica"
@@ -45,30 +46,27 @@ class PoliticaDeAcesso:
 
         if nivel is None:
             # Negar por padrão: endpoint sem política declarada não é liberado.
-            return jsonify({
-                "erro": "Endpoint sem política de acesso declarada",
-                "sucesso": False
-            }), 403
+            return resposta_de_erro("politica_ausente", "Endpoint sem política de acesso declarada", 403)
 
         if nivel == PUBLICA:
             return None
 
         token = self._credencial_da_requisicao()
         if not token:
-            return jsonify({"erro": "Credencial ausente", "sucesso": False}), 401
+            return resposta_de_erro("credencial_ausente", "Credencial ausente", 401)
 
         try:
             payload = verificar(self._settings.secret_key, token)
         except TokenExpirado:
-            return jsonify({"erro": "Credencial expirada", "sucesso": False}), 401
+            return resposta_de_erro("credencial_expirada", "Credencial expirada", 401)
         except TokenInvalido:
-            return jsonify({"erro": "Credencial inválida", "sucesso": False}), 401
+            return resposta_de_erro("credencial_invalida", "Credencial inválida", 401)
 
         g.usuario_id = payload["sub"]
         g.usuario_papel = payload.get("role")
 
         if nivel == ADMIN and g.usuario_papel != ADMIN:
-            return jsonify({"erro": "Permissão insuficiente", "sucesso": False}), 403
+            return resposta_de_erro("permissao_insuficiente", "Permissão insuficiente", 403)
 
         return None
 

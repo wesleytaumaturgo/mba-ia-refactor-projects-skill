@@ -1,18 +1,25 @@
 import sqlite3
 
 from models import usuario as modelo_usuario
-from services.errors import Conflito, EntradaInvalida, NaoEncontrado
+from services.errors import Conflito, NaoEncontrado
+from services.paginacao import pagina
+from validators.usuario_validator import USUARIO
 
 
 class UsuarioService:
-    def __init__(self, db, usuario_repository, password_hasher):
+    def __init__(self, db, usuario_repository, password_hasher, settings):
         self._db = db
         self._repo = usuario_repository
         self._hasher = password_hasher
+        self._settings = settings
 
-    def listar(self):
+    def listar(self, limite=None, offset=None):
         with self._db.connection() as conn:
-            return self._repo.listar(conn)
+            return pagina(
+                self._settings, limite, offset,
+                lambda lim, off: self._repo.listar(conn, lim, off),
+                lambda: self._repo.contar(conn),
+            )
 
     def buscar_por_id(self, usuario_id):
         with self._db.connection() as conn:
@@ -21,9 +28,9 @@ class UsuarioService:
             raise NaoEncontrado("Usuário não encontrado")
         return usuario
 
-    def criar(self, nome, email, senha):
-        if not nome or not email or not senha:
-            raise EntradaInvalida("Nome, email e senha são obrigatórios")
+    def criar(self, payload):
+        dados = USUARIO.validate(payload)
+        nome, email, senha = dados["nome"], dados["email"], dados["senha"]
 
         with self._db.connection() as conn:
             if self._repo.buscar_por_email(conn, email) is not None:

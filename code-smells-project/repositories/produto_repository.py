@@ -4,9 +4,11 @@ from models import produto as modelo_produto
 class ProdutoRepository:
     """Acesso a dados de produto. Toda consulta usa parâmetros vinculados (TR-02)."""
 
-    def listar(self, conn):
+    def listar(self, conn, limite, offset):
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM produtos")
+        cursor.execute(
+            "SELECT * FROM produtos ORDER BY id LIMIT ? OFFSET ?", (limite, offset)
+        )
         return [modelo_produto.de_registro(row) for row in cursor.fetchall()]
 
     def buscar_por_id(self, conn, produto_id):
@@ -38,8 +40,10 @@ class ProdutoRepository:
         cursor.execute("DELETE FROM produtos WHERE id = ?", (produto_id,))
         return cursor.rowcount
 
-    def buscar(self, conn, termo=None, categoria=None, preco_min=None, preco_max=None):
-        query = "SELECT * FROM produtos WHERE 1=1"
+    def buscar(self, conn, termo=None, categoria=None, preco_min=None, preco_max=None,
+               limite=None, offset=0, apenas_contagem=False):
+        query = ("SELECT COUNT(*) FROM produtos WHERE 1=1" if apenas_contagem
+                 else "SELECT * FROM produtos WHERE 1=1")
         params = []
         if termo:
             query += " AND (nome LIKE ? OR descricao LIKE ?)"
@@ -55,6 +59,12 @@ class ProdutoRepository:
             params.append(preco_max)
 
         cursor = conn.cursor()
+        if apenas_contagem:
+            cursor.execute(query, tuple(params))
+            return cursor.fetchone()[0]
+
+        query += " ORDER BY id LIMIT ? OFFSET ?"
+        params.extend([limite, offset])
         cursor.execute(query, tuple(params))
         return [modelo_produto.de_registro(row) for row in cursor.fetchall()]
 

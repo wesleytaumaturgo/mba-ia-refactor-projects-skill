@@ -1,7 +1,8 @@
+import constants
+
+
 class AdminService:
     """Operações administrativas e diagnóstico de liveness/readiness."""
-
-    VERSAO = "1.0.0"
 
     def __init__(self, db, admin_repository, produto_repository, usuario_repository,
                  pedido_repository, logger):
@@ -27,4 +28,4 @@ class AdminService:
                 "usuarios": self._usuarios.contar(conn),
                 "pedidos": self._pedidos.contar(conn),
             }
-        return contagens, self.VERSAO
+        return contagens, constants.VERSAO_API

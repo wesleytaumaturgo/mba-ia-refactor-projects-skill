@@ -1,7 +1,7 @@
 from flask import jsonify, request
 
 from dto.serializers import pedidos_dto
-from services.errors import EntradaInvalida, NaoEncontrado, RegraDeNegocioViolada
+from services.errors import EntradaInvalida
 
 
 class PedidoController:
@@ -10,28 +10,26 @@ class PedidoController:
         self._log = logger
 
     def listar_todos(self):
-        pedidos = self._service.listar()
-        return jsonify({"dados": pedidos_dto(pedidos), "sucesso": True}), 200
+        pag = self._service.listar(**_parametros_de_pagina())
+        return jsonify({
+            "dados": pedidos_dto(pag["itens"]),
+            "paginacao": pag["paginacao"],
+            "sucesso": True,
+        }), 200
 
     def listar_por_usuario(self, usuario_id):
-        pedidos = self._service.listar_por_usuario(usuario_id)
-        return jsonify({"dados": pedidos_dto(pedidos), "sucesso": True}), 200
+        pag = self._service.listar_por_usuario(usuario_id, **_parametros_de_pagina())
+        return jsonify({
+            "dados": pedidos_dto(pag["itens"]),
+            "paginacao": pag["paginacao"],
+            "sucesso": True,
+        }), 200
 
     def criar(self):
         dados = request.get_json(silent=True)
-        if not dados:
-            return jsonify({"erro": "Dados inválidos"}), 400
-
-        try:
-            resultado = self._service.criar(
-                dados.get("usuario_id"), dados.get("itens", [])
-            )
-        except EntradaInvalida as erro:
-            return jsonify({"erro": erro.mensagem}), 400
-        except (NaoEncontrado, RegraDeNegocioViolada) as erro:
-            # O baseline responde 400 para item inexistente e para estoque insuficiente.
-            return jsonify({"erro": erro.mensagem, "sucesso": False}), 400
-
+        if not isinstance(dados, dict):
+            raise EntradaInvalida("Dados inválidos")
+        resultado = self._service.criar(dados.get("usuario_id"), dados.get("itens", []))
         return jsonify({
             "dados": resultado,
             "sucesso": True,
@@ -39,12 +37,15 @@ class PedidoController:
         }), 201
 
     def atualizar_status(self, pedido_id):
-        dados = request.get_json(silent=True) or {}
-        try:
-            self._service.atualizar_status(pedido_id, dados.get("status", ""))
-        except EntradaInvalida as erro:
-            return jsonify({"erro": erro.mensagem}), 400
-        except NaoEncontrado as erro:
-            return jsonify({"erro": erro.mensagem}), 404
-
+        dados = request.get_json(silent=True)
+        if not isinstance(dados, dict):
+            raise EntradaInvalida("Status inválido")
+        self._service.atualizar_status(pedido_id, dados.get("status", ""))
         return jsonify({"sucesso": True, "mensagem": "Status atualizado"}), 200
+
+
+def _parametros_de_pagina():
+    return {
+        "limite": request.args.get("limite", None),
+        "offset": request.args.get("offset", None),
+    }

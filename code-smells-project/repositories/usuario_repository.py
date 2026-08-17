@@ -2,9 +2,11 @@ from models import usuario as modelo_usuario
 
 
 class UsuarioRepository:
-    def listar(self, conn):
+    def listar(self, conn, limite, offset):
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM usuarios")
+        cursor.execute(
+            "SELECT * FROM usuarios ORDER BY id LIMIT ? OFFSET ?", (limite, offset)
+        )
         return [modelo_usuario.de_registro(row) for row in cursor.fetchall()]
 
     def buscar_por_id(self, conn, usuario_id):

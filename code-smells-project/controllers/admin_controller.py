@@ -1,5 +1,6 @@
 from flask import jsonify
 
+import constants
 from dto.serializers import health_dto
 
 
@@ -11,16 +12,9 @@ class AdminController:
 
     def index(self):
         return jsonify({
-            "mensagem": "Bem-vindo à API da Loja",
-            "versao": "1.0.0",
-            "endpoints": {
-                "produtos": "/produtos",
-                "usuarios": "/usuarios",
-                "pedidos": "/pedidos",
-                "login": "/login",
-                "relatorios": "/relatorios/vendas",
-                "health": "/health",
-            },
+            "mensagem": constants.MENSAGEM_BOAS_VINDAS,
+            "versao": constants.VERSAO_API,
+            "endpoints": constants.ENDPOINTS_PUBLICADOS,
         }), 200
 
     def health(self):
