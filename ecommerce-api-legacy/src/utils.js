@@ -1,9 +1,11 @@
-let globalCache = {};
-let totalRevenue = 0;
+// TR-09 removeu o estado global mutável de módulo:
+//   - `globalCache` virou instância injetada em src/lib/cache.js
+//   - `totalRevenue` era primitivo exportado por valor em CommonJS: reatribuições
+//     nunca chegariam aos consumidores. Acumulador estruturalmente inoperante, removido.
+// O que restou aqui é código legado sem consumidor, removido por TR-15 na Onda 4.
 
 function logAndCache(key, data) {
     console.log(`[LOG] Salvando no cache: ${key}`);
-    globalCache[key] = data;
 }
 
 function badCrypto(pwd) {
@@ -14,4 +16,4 @@ function badCrypto(pwd) {
     return hash.substring(0, 10);
 }
 
-module.exports = { logAndCache, badCrypto, globalCache, totalRevenue };
+module.exports = { logAndCache, badCrypto };

@@ -4,7 +4,8 @@ const express = require('express');
 
 const { loadConfig } = require('./config');
 const { createDatabase } = require('./db/connection');
-const { bootstrapSchema } = require('./db/bootstrapSchema');
+const { migrate, assertSchemaUpToDate } = require('./db/migrate');
+const { seedDevelopment } = require('./db/seed');
 
 const { makeCourseRepository } = require('./repositories/courseRepository');
 const { makeUserRepository } = require('./repositories/userRepository');
@@ -24,6 +25,7 @@ const { makeUserController } = require('./controllers/userController');
 
 const { buildRoutes } = require('./routes');
 const { makeLogger } = require('./lib/logger');
+const { makeCache } = require('./lib/cache');
 const { makeAuthenticate } = require('./middlewares/auth');
 const { makeRateLimiter } = require('./middlewares/rateLimit');
 
@@ -33,11 +35,10 @@ async function main() {
     const config = loadConfig();
     const logger = makeLogger({ level: config.logLevel });
 
-    const db = createDatabase({
+    const db = await createDatabase({
         databaseFile: config.databaseFile,
         verbose: config.isDevelopment,
     });
-    await bootstrapSchema(db);
 
     const courseRepository = makeCourseRepository(db);
     const userRepository = makeUserRepository(db);
@@ -45,7 +46,20 @@ async function main() {
     const paymentRepository = makePaymentRepository(db);
     const auditLogRepository = makeAuditLogRepository(db);
 
+    const cache = makeCache({ ttlMs: 300000, maxEntries: 1000 });
     const passwordService = makePasswordService({ costFactor: config.passwordCostFactor });
+
+    // TR-16: o boot NÃO executa DDL — apenas verifica a versão de schema aplicada.
+    // Exceção declarada: um banco ':memory:' deixa de existir quando o processo
+    // morre, então não há como pré-migrá-lo por script. Nesse caso, e só em
+    // desenvolvimento, o boot aplica migração e seed e diz que fez isso.
+    if (config.databaseFile === ':memory:' && config.isDevelopment) {
+        logger.warn('ephemeral_database', { code: 'in-memory-bootstrap' });
+        await migrate(db, { logger });
+        await seedDevelopment(db, { passwordService, nodeEnv: config.nodeEnv, logger });
+    } else {
+        await assertSchemaUpToDate(db);
+    }
     const paymentGateway = makePaymentGateway({ apiKey: config.paymentGatewayKey, logger });
 
     const checkoutService = makeCheckoutService({
@@ -56,6 +70,8 @@ async function main() {
         auditLogRepository,
         paymentGateway,
         passwordService,
+        unitOfWork: { run: db.transaction },
+        cache,
         logger,
     });
     const reportService = makeReportService({
@@ -64,7 +80,12 @@ async function main() {
         userRepository,
         paymentRepository,
     });
-    const userService = makeUserService({ userRepository });
+    const userService = makeUserService({
+        userRepository,
+        enrollmentRepository,
+        unitOfWork: { run: db.transaction },
+        logger,
+    });
 
     const checkoutController = makeCheckoutController({ checkoutService });
     const reportController = makeReportController({ reportService });
