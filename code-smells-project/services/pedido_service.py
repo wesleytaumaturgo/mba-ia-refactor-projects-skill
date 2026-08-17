@@ -1,3 +1,5 @@
+import sqlite3
+
 from models import pedido as modelo_pedido
 from services.errors import EntradaInvalida, NaoEncontrado, RegraDeNegocioViolada
 from services.paginacao import pagina
@@ -46,6 +48,18 @@ class PedidoService:
         # Uma única unidade de trabalho cobre a leitura dos produtos, a criação do pedido,
         # a inserção dos itens e a baixa de estoque. Qualquer erro desfaz tudo — antes,
         # o retorno antecipado no meio da sequência deixava estado parcial (finding F-012).
+        try:
+            pedido_id, total = self._gravar(usuario_id, itens)
+        except sqlite3.IntegrityError:
+            # A FK de TR-16 recusa pedido de usuário inexistente. Sem esta tradução o
+            # erro subiria como defeito e viraria 500 — que é o colapso que o passo 4 de
+            # TR-13 existe para desfazer.
+            raise NaoEncontrado("Usuário " + str(usuario_id) + " não encontrado")
+
+        self._notificacao.pedido_criado(pedido_id, usuario_id)
+        return {"pedido_id": pedido_id, "total": total}
+
+    def _gravar(self, usuario_id, itens):
         with self._db.transaction() as conn:
             total = 0
             linhas = []
@@ -76,8 +90,7 @@ class PedidoService:
                         "Estoque insuficiente para " + produto["nome"]
                     )
 
-        self._notificacao.pedido_criado(pedido_id, usuario_id)
-        return {"pedido_id": pedido_id, "total": total}
+        return pedido_id, total
 
     def atualizar_status(self, pedido_id, novo_status):
         novo_status = STATUS.validate({"status": novo_status})["status"]
