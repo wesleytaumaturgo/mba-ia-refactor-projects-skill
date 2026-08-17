@@ -1,0 +1,78 @@
+{
+  "project": "ecommerce-api-legacy",
+  "baseline_sha": "5d02287",
+  "boot": {
+    "command": "npm start",
+    "source": "manifest script (package.json scripts.start -> node src/app.js)",
+    "port": 3000,
+    "bind": "*",
+    "env_required": [],
+    "evidence": {
+      "port_listening": "LISTEN 0 511 *:3000 *:*",
+      "process_alive_after_3s": true,
+      "first_request_answered": "GET /__probe__ -> 404"
+    }
+  },
+  "endpoints_total": 3,
+  "requests_total": 4,
+  "notes": [
+    "M = 4 requisicoes exercitadas sobre 3 endpoints: POST /api/checkout tem dois casos representativos (sucesso e recusa) porque o caminho de recusa e um contrato observavel distinto.",
+    "A ordem dos itens da colecao de /api/admin/financial-report NAO e garantida pelo baseline: duas execucoes consecutivas do codigo intocado devolveram ordens diferentes ([Clean Architecture, Docker] e [Docker, Clean Architecture]). Divergencia de ordem no smoke test nao e vermelha (validation-protocol.md 8).",
+    "enrollment_id e identificador gerado: volatil, nao comparado por valor.",
+    "Nenhum endpoint pre-existente quebrado."
+  ],
+  "baseline": [
+    {
+      "method": "POST",
+      "path": "/api/checkout",
+      "case": "sucesso",
+      "request_body": {"usr": "Guilherme", "eml": "gui@fullcycle.com.br", "pwd": "senhaforte", "c_id": 2, "card": "4111222233334444"},
+      "status": 200,
+      "media": "application/json; charset=utf-8",
+      "shape": {"msg": "string", "enrollment_id": "number"},
+      "volatile": ["enrollment_id"],
+      "note": "escrita: cria user, enrollment, payment e audit_log"
+    },
+    {
+      "method": "POST",
+      "path": "/api/checkout",
+      "case": "pagamento recusado",
+      "request_body": {"usr": "Joao", "eml": "joao@teste.com", "pwd": "123", "c_id": 1, "card": "5111222233334444"},
+      "status": 400,
+      "media": "text/html; charset=utf-8",
+      "selector": {"text": "Pagamento recusado", "length": 18},
+      "note": "corpo nao estruturado: comparado por seletor, nunca por shape"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/financial-report",
+      "case": "leitura",
+      "status": 200,
+      "media": "application/json; charset=utf-8",
+      "shape": {
+        "_root": "array",
+        "_items": 2,
+        "course": "string",
+        "revenue": "number",
+        "students": "array",
+        "students[].student": "string",
+        "students[].paid": "number"
+      },
+      "values_stable": {
+        "Clean Architecture": {"revenue": 997, "students": [{"student": "Leonan", "paid": 997}]},
+        "Docker": {"revenue": 497, "students": [{"student": "Guilherme", "paid": 497}]}
+      },
+      "order_guaranteed": false
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/users/:id",
+      "case": "destrutivo",
+      "request_path": "/api/users/1",
+      "status": 200,
+      "media": "text/html; charset=utf-8",
+      "selector": {"text": "Usuario deletado, mas as matriculas e pagamentos ficaram sujos no banco.", "length": 74},
+      "note": "destrutivo: executado por ultimo. Corpo nao estruturado: comparado por seletor. O texto original contem acentos (Usuario/matriculas) - o valor literal esta em evidence/baseline/ecommerce-api-legacy.md"
+    }
+  ]
+}
