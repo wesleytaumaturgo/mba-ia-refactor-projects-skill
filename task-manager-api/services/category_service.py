@@ -1,6 +1,10 @@
 """Regra de negócio do agregado Category."""
 from models.category import Category
+from observability.logger import get_logger, info
 from services.errors import NotFound
+
+
+logger = get_logger('categories')
 
 
 class CategoryService:
@@ -47,5 +51,6 @@ class CategoryService:
         """
         category = self.get_category(category_id)
         with self._uow.transaction():
-            self._tasks.clear_category(category_id)
+            detached = self._tasks.clear_category(category_id)
             self._categories.delete(category)
+        info(logger, 'category_deleted', category_id=category_id, count=detached)

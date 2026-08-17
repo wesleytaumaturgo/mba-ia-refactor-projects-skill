@@ -6,7 +6,11 @@ Não importa nenhum símbolo de protocolo — a regra vale igual sob HTTP ou sob
 from utils.helpers import utc_now
 
 from models.task import Task
+from observability.logger import get_logger, info
 from services.errors import NotFound
+
+
+logger = get_logger('tasks')
 
 
 class TaskService:
@@ -73,6 +77,8 @@ class TaskService:
 
         with self._uow.transaction():
             self._tasks.add(task)
+        info(logger, 'task_created', task_id=task.id, status=task.status,
+             priority=task.priority, user_id=task.user_id)
         return task
 
     def update_task(self, task_id, payload):
@@ -84,12 +90,14 @@ class TaskService:
             for field, value in data.items():
                 setattr(task, field, value)
             task.updated_at = utc_now()
+        info(logger, 'task_updated', task_id=task.id, status=task.status)
         return task
 
     def delete_task(self, task_id):
         task = self.get_task(task_id)
         with self._uow.transaction():
             self._tasks.delete(task)
+        info(logger, 'task_deleted', task_id=task_id)
 
 
 def completion_rate(done, total):

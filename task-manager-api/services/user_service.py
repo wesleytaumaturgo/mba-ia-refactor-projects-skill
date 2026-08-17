@@ -1,6 +1,10 @@
 """Regra de negócio do agregado User, incluindo autenticação."""
 from models.user import User
+from observability.logger import get_logger, info, warning
 from services.errors import Conflict, NotFound, PermissionDenied, ValidationError
+
+
+logger = get_logger('users')
 
 
 class UserService:
@@ -43,6 +47,7 @@ class UserService:
             if _is_unique_violation(exc):
                 raise Conflict('Email já cadastrado', field='email')
             raise
+        info(logger, 'user_created', user_id=user.id, role=user.role)
         return user
 
     def update_user(self, user_id, payload, actor_is_admin=False):
@@ -71,6 +76,7 @@ class UserService:
         with self._uow.transaction():
             self._tasks.delete_by_user(user_id)
             self._users.delete(user)
+        info(logger, 'user_deleted', user_id=user_id)
 
     # ── autenticação ─────────────────────────────────────────────────────────
     def authenticate(self, email, password):
@@ -79,6 +85,8 @@ class UserService:
 
         user = self._users.find_by_email(email)
         if user is None or not user.check_password(password):
+            # NUNCA o e-mail nem a senha: só o evento e o resultado.
+            warning(logger, 'login_failed', code='invalid_credentials')
             raise PermissionDenied('Credenciais inválidas', code='invalid_credentials')
         if not user.active:
             raise PermissionDenied('Usuário inativo', code='inactive_user')
@@ -87,6 +95,8 @@ class UserService:
         if user.password_needs_rehash():
             with self._uow.transaction():
                 user.set_password(password)
+            info(logger, 'password_rehashed', user_id=user.id)
+        info(logger, 'login_succeeded', user_id=user.id, role=user.role)
         return user
 
     def issue_token(self, user):

@@ -18,6 +18,7 @@ from infra.migrator import verify as verify_schema
 from middlewares.auth import authenticate_request, public
 from middlewares.error_handler import register_error_handlers
 from middlewares.rate_limit import RateLimiter
+from observability.logger import configure as configure_logging
 from repositories.category_repository import CategoryRepository
 from repositories.task_repository import TaskRepository
 from repositories.unit_of_work import UnitOfWork
@@ -40,6 +41,8 @@ from validators.user_validator import UserValidator
 
 def create_app(settings=None):
     settings = settings or load_settings()
+
+    configure_logging(settings)
 
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = settings.database_uri
