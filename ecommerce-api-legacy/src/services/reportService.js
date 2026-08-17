@@ -1,6 +1,6 @@
 'use strict';
 
-const { PAID } = require('./paymentGateway');
+const { SETTLED } = require('../models/paymentStatus');
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -47,7 +47,7 @@ const makeReportService = ({ reportRepository }) => ({
 
         const [rows, total] = await Promise.all([
             reportRepository.financialRows({
-                settledStatus: PAID,
+                settledStatus: SETTLED,
                 limit: effectiveLimit,
                 offset: effectiveOffset,
             }),

@@ -1,7 +1,10 @@
 'use strict';
 
-const PAID = 'PAID';
-const DENIED = 'DENIED';
+const { PaymentStatus } = require('../models/paymentStatus');
+
+// Prefixo de bandeira aceito pelo gateway simulado. Era o literal "4" solto
+// dentro do ternário de autorização.
+const APPROVED_CARD_PREFIX = '4';
 
 // Adapter da integração de pagamento. É o único lugar que conhece a chave do
 // gateway e o formato do cartão — o service de checkout orquestra, não integra.
@@ -15,11 +18,11 @@ const makePaymentGateway = ({ apiKey, logger }) => ({
             amount,
         });
 
-        const status = card.startsWith('4') ? PAID : DENIED;
+        const status = card.startsWith(APPROVED_CARD_PREFIX) ? PaymentStatus.PAID : PaymentStatus.DENIED;
 
         logger.info('payment_authorization_settled', { status, amount });
-        return { status, approved: status === PAID };
+        return { status, approved: status === PaymentStatus.PAID };
     },
 });
 
-module.exports = { makePaymentGateway, PAID, DENIED };
+module.exports = { makePaymentGateway, APPROVED_CARD_PREFIX };
