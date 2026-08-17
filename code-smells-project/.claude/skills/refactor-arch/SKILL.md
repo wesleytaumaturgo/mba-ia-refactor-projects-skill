@@ -83,11 +83,15 @@ Carregue `references/project-analysis.md` e `references/validation-protocol.md`.
 
 Determine os oito fatos da §0 daquele arquivo: linguagem, framework efetivo, **versão real do
 runtime obtida executando-o** (não a do manifesto), persistência, domínio, arquitetura efetiva
-por grafo de imports, inventário de endpoints e baseline de comportamento.
+pelo grafo de resolução, inventário de endpoints e baseline de comportamento.
 
-Duas armadilhas que custam a fase inteira se ignoradas: dependência declarada e não importada
-**não** é a stack (é candidata a AP-26), e a arquitetura efetiva é o grafo de imports, **não** a
-árvore de diretórios.
+Duas armadilhas que custam a fase inteira se ignoradas: dependência declarada e não resolvida
+**não** é a stack (é candidata a AP-26); e a arquitetura efetiva é o **grafo de resolução de
+símbolos**, não a árvore de diretórios — e também não o grafo de imports, que é apenas um dos
+mecanismos de resolução. Determine qual mecanismo a stack usa (import explícito, autoload por
+convenção, varredura de pacote, registro em container) **antes** de concluir o que é alcançável:
+onde a stack resolve por convenção, a árvore que ela varre é a evidência, e tratá-la como morta
+por ausência de import é o erro mais caro desta fase (`project-analysis.md` §6).
 
 Capture o baseline por último, com o código ainda intocado, e **grave-o em `BASELINE_PATH`**
 (`validation-protocol.md` §2). O baseline persistido é a segunda e última exceção à regra de
@@ -105,8 +109,9 @@ Framework     : <framework> <version>
 Package mgr   : <manifest file>
 Database      : <engine> · <n> tables
 Domain        : <one line>
-Entry point   : <file>
-Architecture  : <effective, from the import graph>
+Entry points  : <file, or list when the stack has more than one>
+Resolution    : <explicit import | convention autoload | package scan | container registry>
+Architecture  : <effective, from the resolution graph>
 Source files  : <n> files · <n> LOC
 Endpoints     : <n> mapped · baseline captured (<n> responses)
 Baseline SHA  : <short sha>
@@ -132,12 +137,12 @@ julgar os APs de camada (AP-06, AP-08, AP-13, AP-17).
 4. **Classifique a severidade** pela escala do catálogo; justifique qualquer desvio.
 5. **Registre o que NÃO foi encontrado** nas categorias verificadas. É o que torna a auditoria
    falsificável e distingue este relatório de um preenchimento de cota.
-6. **Registre como finding o conteúdo de qualquer camada inalcançável** a partir do entry point
-   **antes** de propô-la para remoção (`mvc-guidelines.md` §6). Nada some sem constar do
-   relatório — inclusive segredos versionados dentro de código morto.
+6. **Registre como finding o conteúdo de qualquer camada inalcançável** pelo mecanismo de
+   resolução da stack **antes** de propô-la para remoção (`mvc-guidelines.md` §6). Nada some sem
+   constar do relatório — inclusive segredos versionados dentro de código morto.
 7. **Ordene** CRITICAL → HIGH → MEDIUM → LOW e redija conforme `references/report-template.md`.
-8. **Redija a seção Breaking changes:** toda mudança de shape de resposta que a refatoração vai
-   provocar, com endpoint, campo e motivo. Preveja o efeito de cada TR **antes** de executá-lo;
+8. **Redija a seção Breaking changes:** toda mudança de **forma ou media type** de resposta que a
+   refatoração vai provocar, com endpoint, campo e motivo. Preveja o efeito de cada TR **antes** de executá-lo;
    é isso que transforma o gate numa decisão informada.
 9. **Grave o relatório em `REPORT_PATH`**, resolvido nas pré-condições, e repita o caminho
    absoluto na apresentação do gate. Com `BASELINE_PATH`, são as duas únicas escritas permitidas
@@ -183,16 +188,22 @@ Ordem fixa, por severidade. A onda é propriedade do **finding**, não do TR:
 > rótulo padrão conforme necessário. **Um TR sem finding que o acione não é agendado em onda
 > alguma.**
 
-A coluna `TRs padrão` abaixo é **rótulo default, não atribuição**. A atribuição efetiva é a do
-plano aprovado no gate, e é ela que define quais ondas têm conteúdo e quais são vazias
+**O rótulo de onda de cada TR no playbook é o teto**: a onda do AP mais severo que aquele TR
+resolve, e portanto a **mais cedo** que ele pode rodar. O ajuste normal é para **mais tarde**,
+quando o AP que fixou o teto não virou finding. Só se sobe acima do teto quando um finding recebe
+severidade maior que a tabelada — e esse desvio já vem justificado no próprio finding
+(`antipattern-catalog.md`, escala de severidade).
+
+A coluna `Teto` abaixo é **rótulo default, não atribuição**. A atribuição efetiva é a do plano
+aprovado no gate, e é ela que define quais ondas têm conteúdo e quais são vazias
 (`validation-protocol.md` §4.2).
 
-| Onda | Severidade | TRs padrão |
+| Onda | Severidade | Teto — TRs que podem começar aqui |
 |---|---|---|
-| 1 | CRITICAL | TR-01…TR-06 — o esqueleto MVC nasce de TR-06, na onda que o plano lhe der |
-| 2 | HIGH | TR-07…TR-10 |
-| 3 | MEDIUM | TR-11…TR-17 |
-| 4 | LOW | TR-18 |
+| 1 | CRITICAL | TR-01…TR-06, TR-14 — o esqueleto MVC nasce de TR-06, na onda que o plano lhe der |
+| 2 | HIGH | TR-07…TR-10, TR-16 |
+| 3 | MEDIUM | TR-11, TR-12, TR-13, TR-15, TR-17, TR-18 |
+| 4 | LOW | nenhum por teto — todo TR que resolve um AP LOW também resolve um mais severo. A Onda 4 recebe TR **por descida**, quando só o AP LOW virou finding |
 
 Não há onda 0: extrair configuração (TR-01) e decompor a god class (TR-06) produzem a estrutura ao
 resolver o finding que os aciona — na onda desse finding, que é a 1 quando ele é CRITICAL e a 2
@@ -233,12 +244,17 @@ Nenhuma é opcional: são o que distingue "declarou conforme" de "verificou".
    rode contra o código atual o sinal de detecção do AP correspondente
    (`antipattern-catalog.md`) e registre o resultado. Finding cujo sinal ainda dispara **não
    foi corrigido**: entra na saída em `not fixed: <ids>` com a razão.
-2. **Compare a árvore resultante com o layout-alvo** (`mvc-guidelines.md` §4, na variante da
-   stack detectada). Cada camada que o plano prometeu criar existe e é **alcançável a partir do
-   entry point**. Camada prometida e ausente é falha mesmo com smoke test `<n>/<n>` — o smoke
-   test compara contrato, não estrutura.
-3. **Diff o shape observado contra a seção Breaking changes aprovada no gate.** Divergência não
-   declarada é **regressão**, não melhoria — mesmo que o resultado pareça melhor.
+2. **Compare o resultado com o alvo, responsabilidade a responsabilidade** — as
+   responsabilidades em `mvc-guidelines.md` §2, a materialização na convenção adotada em
+   `mvc-guidelines.md` §4. Cada responsabilidade que o plano
+   prometeu materializar tem **um** lugar identificável no código atual, e esse lugar é
+   **alcançável pelo mecanismo de resolução da stack** (§6). O que se verifica é a
+   responsabilidade, não a existência de um diretório com nome específico: numa stack cuja
+   convenção o plano adotou, o lugar certo é o que a convenção indica (`mvc-guidelines.md` §1,
+   regra 4). Responsabilidade prometida e sem lugar — ou espalhada por vários — é falha mesmo
+   com smoke test `<n>/<n>`: o smoke test compara contrato, não estrutura.
+3. **Diff a forma e o media type observados contra a seção Breaking changes aprovada no gate.**
+   Divergência não declarada é **regressão**, não melhoria — mesmo que o resultado pareça melhor.
 
 ### Saída
 
@@ -270,7 +286,8 @@ quebrou, o TR suspeito, a evidência, e o commit verde para onde o repositório 
 - Nenhuma escrita em arquivo do projeto antes do `y`. `BASELINE_PATH` e `REPORT_PATH` são as
   duas exceções, e são artefato, não código.
 - Sem `arquivo:linha` + código literal, o finding não existe.
-- Path, verbo e status code de sucesso são preservados. Mudança de shape só a declarada.
+- Path, verbo e status code de sucesso são preservados. Mudança de forma ou de media type só a
+  declarada.
 - Commit é consequência de smoke test verde, com a contagem na mensagem.
 - Os exemplos das referências ilustram a **forma**. Escreva no idioma da stack detectada na
   Fase 1, nunca copiando a sintaxe de outra.

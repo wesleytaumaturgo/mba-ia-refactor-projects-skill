@@ -30,16 +30,21 @@ Todos os exemplos são **sintéticos**, sobre um domínio fictício de reservas.
 
 | Nível | Critério de atribuição | Onda padrão |
 |---|---|---|
-| **CRITICAL** | Explorável por chamador anônimo, ou expõe credencial/PII, ou permite perda de dados. Não requer condição rara. | 1 |
+| **CRITICAL** | Explorável por chamador anônimo, ou expõe credencial/PII, ou permite perda de dados — sem requerer condição rara. **Ou** viola integralmente a separação de responsabilidades, de modo que não exista fronteira onde inserir uma camada. | 1 |
 | **HIGH** | Compromete integridade dos dados ou torna a evolução do código inviável sem reescrita. Requer condição plausível. | 2 |
 | **MEDIUM** | Degrada correção sob carga, mascara defeitos ou multiplica o custo de cada mudança futura. | 3 |
 | **LOW** | Custo de leitura e manutenção, sem efeito observável em produção. | 4 |
 
-**A onda é propriedade do finding, não do TR.** Cada AP declara sua onda padrão; a onda de um TR é
-a do finding de **maior severidade** que ele resolve — suba ou desça o rótulo conforme necessário,
-e não agende TR que nenhum finding acione. Sobe: logging é Onda 3, mas com segredo em log (AP-07,
-CRITICAL) roda na Onda 1. Desce: TR-06 é rotulado Onda 1, mas sem AP-06 e com AP-13 (HIGH) roda na
-Onda 2 — e a Onda 1, sem TR atribuído, é vazia.
+**A onda é propriedade do finding, não do TR.** Cada AP declara sua onda padrão. O rótulo de onda
+de um TR no `refactor-playbook.md` é o **teto**: a onda do AP mais severo que ele resolve, e
+portanto a mais cedo que ele pode rodar. A onda real é a do finding de **maior severidade
+presente**, e não se agenda TR que nenhum finding acione.
+
+**Desce** sempre que o AP mais severo não virou finding: TR-06 é rotulado Onda 1 por AP-06, e num
+projeto sem AP-06 e com AP-13 (HIGH) roda na Onda 2 — deixando a Onda 1 sem TR atribuído, isto é,
+vazia. **Sobe** apenas quando você atribuir a um finding severidade **maior** que a tabelada aqui:
+o teto é calculado sobre a severidade default, e um desvio justificado o supera. Fora esse caso, o
+rótulo é o limite superior e o ajuste é sempre para mais tarde.
 
 **Registre desvios.** Se atribuir a um finding severidade diferente da tabelada aqui, escreva
 o motivo no próprio finding. Uma severidade sem justificativa é uma opinião.
@@ -59,16 +64,16 @@ o motivo no próprio finding. Uma severidade sem justificativa é uma opinião.
 | [AP-09](#ap-09) | Acoplamento a dependência concreta, sem injeção | HIGH | 2 | Universal | TR-09 |
 | [AP-10](#ap-10) | Estado global mutável compartilhado | HIGH | 2 | Universal | TR-09 |
 | [AP-11](#ap-11) | Escrita multi-etapa sem fronteira transacional | HIGH | 2 | ≥2 escritas relacionadas | TR-10 |
-| [AP-12](#ap-12) | Validação de domínio inline no handler | HIGH | 2 | Universal | TR-08 |
+| [AP-12](#ap-12) | Validação de domínio inline no handler | MEDIUM | 3 | Universal | TR-08 |
 | [AP-13](#ap-13) | Rota acoplada diretamente ao ORM ou driver | HIGH | 2 | Projetos com ORM ou driver direto | TR-06 |
 | [AP-14](#ap-14) | Mass assignment / bind não filtrado de entrada | HIGH | 2 | Universal | TR-08 |
 | [AP-15](#ap-15) | N+1 aninhado | MEDIUM | 3 | Projetos com persistência | TR-11 |
 | [AP-16](#ap-16) | Deprecated API usage | MEDIUM | 3 | Universal | TR-12 |
 | [AP-17](#ap-17) | Duplicação com a abstração correta morta no repositório | MEDIUM | 3 | Universal | TR-15 |
 | [AP-18](#ap-18) | Captura genérica de exceção e vazamento de detalhe interno | MEDIUM | 3 | Universal | TR-13 |
-| [AP-19](#ap-19) | Saída de console como mecanismo de log | MEDIUM | 3 | Universal | TR-14 |
+| [AP-19](#ap-19) | Saída de console como mecanismo de log | LOW | 4 | Universal | TR-14 |
 | [AP-20](#ap-20) | Política de origem cruzada permissiva | MEDIUM | 3 | APIs consumidas por browser | TR-18 |
-| [AP-21](#ap-21) | DDL e seed executados no boot da aplicação | MEDIUM | 3 | Projetos com persistência | TR-16 |
+| [AP-21](#ap-21) | DDL e seed executados no boot da aplicação | HIGH | 2 | Projetos com persistência | TR-16 |
 | [AP-22](#ap-22) | Listagem sem paginação | MEDIUM | 3 | APIs de leitura de coleção | TR-17 |
 | [AP-23](#ap-23) | Contrato de resposta inconsistente | MEDIUM | 3 | APIs | TR-13 |
 | [AP-24](#ap-24) | Ausência de rate limiting no endpoint de autenticação | MEDIUM | 3 | APIs com autenticação | TR-05 |
@@ -77,7 +82,9 @@ o motivo no próprio finding. Uma severidade sem justificativa é uma opinião.
 | [AP-27](#ap-27) | Nomenclatura pobre e sombreamento de builtin | LOW | 4 | Universal | TR-18 |
 | [AP-28](#ap-28) | Ausência de infraestrutura de qualidade | LOW | — | Universal | reportado, não corrigido |
 
-Distribuição: **CRITICAL 7 · HIGH 7 · MEDIUM 10 · LOW 4**.
+Distribuição: **CRITICAL 7 · HIGH 7 · MEDIUM 9 · LOW 5**. A conta é resultado da escala acima
+aplicada entrada a entrada, não uma cota — se uma reclassificação futura mudar os números, é a
+linha que muda, não a classificação.
 
 ---
 
@@ -97,7 +104,8 @@ entre a constante e o valor externo, e o rastro do valor até o ponto de entrada
 **NÃO é finding quando.** O valor interpolado é constante do próprio código ou item de uma
 allowlist fechada verificada imediatamente antes; ou é identificador de estrutura (nome de
 tabela/coluna) que a linguagem não permite vincular como parâmetro **e** vem de allowlist.
-Placeholder do driver dentro de uma f-string não é concatenação de entrada.
+Placeholder do driver dentro de um mecanismo de interpolação da linguagem detectada não é
+concatenação de entrada.
 
 **Manifestações por stack.** Python: montagem por `+`/f-string entregue ao executor do driver.
 JavaScript: template literal na string da consulta em vez do array de valores. Java: `Statement`
@@ -188,7 +196,8 @@ coluna de senha comparada com igualdade na cláusula da consulta.
 
 **Sinal.** Existe rota que executa operação destrutiva em massa, expõe dados de terceiros ou
 tem path sugerindo privilégio administrativo, e que vai direto do registro ao acesso a dados
-sem middleware ou decorator de verificação de identidade? O fluxo de login emite credencial
+sem passar por nenhum ponto de verificação de identidade — seja ele middleware, filtro,
+interceptador, callback declarado na rota, ou o que a stack detectada usar para isso? O fluxo de login emite credencial
 verificável (assinada, com expiração) ou apenas uma string derivada de forma previsível do
 identificador do sujeito? O schema modela papéis que nenhuma decisão de autorização consulta?
 
@@ -261,9 +270,9 @@ interpolado, o que arrasta campos sensíveis sem que o autor os tenha nomeado.
 
 **HIGH · Onda 2 · TR-07**
 
-**Sinal.** Existe decisão de negócio de alto valor (autorização de pagamento, precificação,
-elegibilidade, transição de estado) ou efeito colateral de negócio (notificação, integração
-externa) escrito dentro do handler de protocolo? Ou, na direção inversa, dentro de uma função
+**Sinal.** Existe, dentro do handler de protocolo, uma ramificação cujo resultado muda regra de
+domínio — autorização, precificação, elegibilidade, transição de estado — ou um efeito colateral
+de negócio (notificação, integração externa)? Ou, na direção inversa, dentro de uma função
 da camada de acesso a dados, misturado a agregações de consulta?
 
 **Evidência mínima.** O bloco de decisão dentro do handler ou da função de dados, com as
@@ -299,7 +308,10 @@ construtor, mais o import que a torna possível.
 
 **NÃO é finding quando.** A dependência é pura e sem estado (função utilitária determinística,
 formatador) — injetar isso adiciona um parâmetro e não remove decisão alguma. Nem é finding no
-próprio composition root: instanciar infraestrutura é a responsabilidade dele.
+próprio composition root: instanciar infraestrutura é a responsabilidade dele. **Nem quando a
+stack resolve a dependência por um container próprio** — a injeção existe, é declarativa, e o
+container é o composition root da stack (`mvc-guidelines.md` §5). Exigir construção manual onde
+há container é lutar contra a stack, não corrigir acoplamento.
 
 **Manifestações por stack.** Python: chamada à função de acesso ao handle global dentro de
 cada função de dados. JavaScript: `require`/`import` do módulo de conexão dentro do módulo de
@@ -313,8 +325,11 @@ serviço, usado diretamente. Java: instanciação com `new` de repositório dent
 **HIGH · Onda 2 · TR-09**
 
 **Sinal.** Existe handle de recurso (conexão, cliente, cache) ou variável mutável em escopo de
-módulo, escrita pelo caminho de requisição, sem lock e sem política de invalidação — e com a
-proteção de concorrência do driver explicitamente desabilitada?
+módulo, escrita pelo caminho de requisição, sem lock e sem política de invalidação?
+
+**Agravante.** A proteção de concorrência do driver está explicitamente desabilitada, nas stacks
+cujo driver tenha essa opção. É agravante, não parte do sinal: o estado global mutável já é o
+finding sem ela.
 
 **Evidência mínima.** A declaração em escopo de módulo, a escrita a partir do caminho de
 requisição, e a linha que desabilita a proteção do driver (quando houver).
@@ -362,7 +377,7 @@ com commit implícito por operação, ou sem bloco transacional que as envolva.
 <a id="ap-12"></a>
 ## AP-12 — Validação de domínio inline no handler
 
-**HIGH · Onda 2 · TR-08**
+**MEDIUM · Onda 3 · TR-08**
 
 **Sinal.** As invariantes de domínio (faixa numérica, tamanho de campo, vocabulário fechado,
 formato) estão escritas como sequência de condicionais com literais dentro do handler, sem
@@ -403,8 +418,13 @@ como uma inversão só: são a mesma causa.
 Onda 1 pela severidade de AP-06 e fecha este de carona; quando só este existir, roda na Onda 2.
 
 **NÃO é finding quando.** O projeto é uma única rota de leitura trivial sem regra alguma, e a
-camada intermediária adicionaria um salto sem remover decisão (ver `mvc-guidelines.md` §10).
-Verifique se essa isenção vale para **todas** as rotas antes de aplicá-la.
+camada intermediária adicionaria um salto sem remover decisão (ver `mvc-guidelines.md` §10);
+verifique se essa isenção vale para **todas** as rotas antes de aplicá-la. **Nem é finding quando
+o handler alcança a persistência pela API de domínio que o próprio framework oferece** — o
+model como porta de entrada de dados, sem que o handler monte consulta, abra sessão ou controle
+transação — **e não acumula regra de negócio**. Isso é o idioma da stack, e regra de negócio no
+handler é AP-08, não este AP. Este AP dispara quando o handler manipula o mecanismo de
+persistência ele mesmo, ou quando existe camada intermediária alcançável e o handler a salta.
 
 **Manifestações por stack.** Python: sessão do ORM importada no módulo de rotas e comitada no
 handler. JavaScript: cliente de banco chamado dentro do callback da rota. Java: repositório
@@ -427,10 +447,6 @@ colunas graváveis do schema que não deveriam ser escritas pelo chamador.
 **NÃO é finding quando.** A entidade só tem campos que o chamador legitimamente controla, ou
 um schema declarativo faz strip dos campos desconhecidos antes do bind. A existência do schema
 não basta: confirme que ele **remove** o extra em vez de apenas ignorá-lo na validação.
-
-**Procedência.** Conhecimento de domínio — não observado durante a calibragem do catálogo, onde
-os projetos analisados atribuíam campo a campo. Mantido porque um catálogo que só contém o que
-os fixtures têm falha silenciosamente no primeiro projeto diferente.
 
 **Manifestações por stack.** Python: `Entity(**payload)` ou update com o dicionário do corpo.
 JavaScript: `Object.assign(entity, req.body)` ou espalhamento do corpo no update.
@@ -493,8 +509,13 @@ existe camada de compatibilidade explícita no projeto com comentário de migra�
 **Reforço.** Ausência de linter configurado explica a sobrevivência da chamada e justifica que
 TR-12 fixe a regra, não apenas substitua a chamada.
 
-**Nota de procedência.** Observado numa única stack durante a calibragem: o sinal vale para
-qualquer runtime, mas a evidência de travessia entre stacks é mais fraca que a dos demais APs.
+**Manifestações por stack.** Toda stack madura publica notas de depreciação por versão, e a
+forma da ocorrência é sempre a mesma: uma chamada que continua funcionando e emite aviso, ou que
+já perdeu o comportamento documentado. Procure construtores de tipos primitivos substituídos por
+fábricas, funções de codificação de URL trocadas por variantes explícitas quanto ao componente,
+APIs de buffer/alocação substituídas por versões seguras, e módulos da biblioteca padrão movidos
+ou renomeados entre versões maiores. O sinal continua sendo a pergunta estrutural; a lista é
+ilustração.
 
 ---
 
@@ -556,7 +577,7 @@ devolvendo a mensagem da exceção no corpo da resposta.
 <a id="ap-19"></a>
 ## AP-19 — Saída de console como mecanismo de log
 
-**MEDIUM · Onda 3 · TR-14**
+**LOW · Onda 4 · TR-14**
 
 **Sinal.** A saída direta para stdout é usada como registro de eventos, sem níveis de
 severidade, timestamp ou destino configurável, e sem import de biblioteca de logging em nenhum
@@ -605,7 +626,7 @@ configuração padrão, sem lista de origens.
 <a id="ap-21"></a>
 ## AP-21 — DDL e seed executados no boot da aplicação
 
-**MEDIUM · Onda 3 · TR-16**
+**HIGH · Onda 2 · TR-16**
 
 **Sinal.** A criação de schema é executada como efeito colateral do import ou do boot, sem
 ferramenta de migração no manifesto, por comando que só cria tabelas ausentes e nunca altera
@@ -697,10 +718,9 @@ limite de taxa no registro da rota e de dependência correspondente no manifesto
 (gateway, proxy) e isso é verificável no repositório. Suposição de que "deve haver um proxy"
 não conta como verificação.
 
-**Procedência.** Conhecimento de domínio — não observado durante a calibragem, onde a
-autenticação analisada era fraca o bastante para tornar força bruta desnecessária. Ausência de
-ocorrência não é ausência de risco: registre o AP quando TR-05 corrigir a autenticação, porque
-a correção torna a força bruta o próximo caminho mais barato.
+**Sinal correlato.** Autenticação fraca torna a força bruta desnecessária e pode mascarar este
+AP. Registre-o quando TR-05 corrigir a autenticação: a correção torna a força bruta o próximo
+caminho mais barato.
 
 **Manifestações por stack.** Qualquer stack: rota de autenticação registrada sem middleware de
 limite, sem contador de tentativas por sujeito e sem atraso progressivo.
@@ -722,7 +742,10 @@ rótulo de negócio embutida na montagem da resposta?
 constante correspondente.
 
 **NÃO é finding quando.** O literal é autoevidente no contexto (`0`, `1`, `-1` como sentinelas
-idiomáticas, base de conversão, índice). Nomear `0` como `ZERO` piora a leitura.
+idiomáticas, base de conversão, índice). Nomear `0` como `ZERO` piora a leitura. **Nem quando o
+literal vive dentro de um bloco que já é finding de AP-12**: cite-o como ocorrência daquele
+finding, e não abra um finding LOW separado. O mesmo condicional não é dois findings — a regra
+mal alocada é a causa, o literal sem nome é o sintoma.
 
 **Manifestações por stack.** Qualquer stack: comparação com número solto dentro de condicional
 de negócio; lista de strings válidas repetida em dois handlers.
@@ -746,12 +769,17 @@ hashing lento — elas revelam a **arquitetura pretendida e não implementada**.
 correspondência: ela converte vários findings LOW numa observação de projeto, e indica que a
 correção é mais barata do que parecia, já que a dependência está no manifesto.
 
-**NÃO é finding quando.** O símbolo é ponto de extensão público de uma biblioteca, ou a
-dependência é usada por ferramenta e não por import (formatador, hook de build).
+**NÃO é finding quando.** O símbolo é ponto de extensão público de uma biblioteca; ou a
+dependência é usada por ferramenta e não por import (formatador, hook de build); ou o símbolo é
+carregado pelo **mecanismo de resolução da stack** — autoloader, varredura de pacote ou registro
+em container —, ainda que nenhum arquivo o importe pelo nome. Marcar como morta a camada que o
+framework carrega por convenção é o falso positivo mais destrutivo deste AP, porque autoriza
+substituir o que funciona.
 
-**Regra de camada.** Diretório de camada inteiro inalcançável a partir do entry point é este AP
-— e é o gatilho da regra de alcançabilidade de `mvc-guidelines.md` §6. Registre o conteúdo
-**antes** de propor a remoção.
+**Regra de camada.** Diretório de camada inteiro inalcançável a partir dos entry points é este AP
+— e é o gatilho da regra de alcançabilidade de `mvc-guidelines.md` §6. Inalcançável **no sentido
+do limite acima**, que é o único: alcançabilidade se mede pelo mecanismo de resolução da stack,
+nunca por import textual. Registre o conteúdo **antes** de propor a remoção.
 
 ---
 
@@ -760,7 +788,8 @@ dependência é usada por ferramenta e não por import (formatador, hook de buil
 
 **LOW · Onda 4 · TR-18**
 
-**Sinal.** Existe nome de builtin da linguagem usado como parâmetro ou variável local? Existem
+**Sinal.** Existe nome de built-in ou palavra reservada da linguagem detectada usado como
+parâmetro ou variável local? Existem
 identificadores de uma a três letras recebendo campos de payload em handler extenso? A
 assinatura tem muitos parâmetros posicionais do mesmo tipo primitivo, permitindo troca de ordem
 sem erro? Os nomes do contrato público divergem do vocabulário do domínio?
@@ -781,7 +810,8 @@ de global do runtime. Qualquer stack: função com quatro strings posicionais se
 
 **LOW · Reportado, não corrigido**
 
-**Sinal.** O manifesto não declara dependências de desenvolvimento, script além do de execução,
+**Sinal.** O manifesto não declara dependências de desenvolvimento, comando reproduzível de
+boot ou de tarefa além do de execução,
 nem versão de runtime; e o repositório não tem arquivo de teste, configuração de lint, exemplo
 de variáveis de ambiente ou pipeline de CI? Faixas de versão abertas convivem com lockfile?
 

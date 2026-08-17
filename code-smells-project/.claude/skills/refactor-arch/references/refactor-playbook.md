@@ -11,12 +11,33 @@ acionou**. Carregar as 18 seções desperdiça o contexto de que a refatoração
 Todos os exemplos são **sintéticos**, sobre um domínio fictício de reservas, e mostram apenas
 o trecho que muda.
 
+### Traduzir a forma, não a sintaxe
+
+Os pares de código abaixo são Python e JavaScript porque dois idiomas bastam para mostrar forma.
+Numa terceira stack, **traduza pelo papel**, nunca pelo token — copiar o construto literal é o
+modo de falha deste arquivo, e produz um projeto que a comunidade da stack não reconhece:
+
+| Forma nos exemplos | O papel a preservar | Erro ao copiar literalmente |
+|---|---|---|
+| Diretório de rotas + registro no entry point | Declarar `método + path → handler`, num só lugar, sem lógica | Criar um diretório de rotas paralelo ao arquivo de rotas que a stack já tem |
+| Decorator/callback de autenticação na rota | Interceptar antes do handler, uniformemente | Procurar decorator numa stack cujo ponto de interceptação tem outro nome, e concluir que não há autenticação |
+| Composition root construindo o grafo no entry point | Um único dono da instanciação de infraestrutura | Reimplementar no entry point o que o container da stack já faz (§TR-09, passo 0) |
+| Diretório de repositórios | Um só lugar conhece o mecanismo de persistência | Criar repositórios ao lado de um model que a stack já usa como porta de dados |
+| Arquivo de migração inicial em SQL | Schema versionado, reproduzível, fora do boot | Inventar um segundo sistema de migração ao lado do da stack (§TR-16, passo 1) |
+| Captura genérica substituída por handler central | Um envelope de erro, um ponto de tradução | Procurar o construto exato do exemplo em vez do mecanismo equivalente da stack |
+
+Quando a stack tiver um mecanismo próprio para o papel, **use o dela**. A forma é normativa; a
+sintaxe e o nome do arquivo não são.
+
 ## Regras de execução
 
-- **Onda é propriedade do finding, não do TR.** O rótulo de cada TR abaixo é o **padrão, não a
-  atribuição**: a onda de um TR é a do finding de maior severidade que ele resolve — sobe (TR-14
-  vai à Onda 1 quando existe AP-07) ou desce (TR-06 vai à Onda 2 quando há AP-13 e não há AP-06).
-  **TR que nenhum finding aciona não é agendado em onda alguma.**
+- **Onda é propriedade do finding, não do TR.** O rótulo de cada TR abaixo é o **teto**: a onda
+  do AP **mais severo** que aquele TR resolve, e portanto a mais cedo que ele pode rodar. A
+  atribuição real é a onda do finding de maior severidade **presente no projeto** — que é o teto
+  quando esse AP virou finding, e mais tarde quando não virou. TR-06 é rotulado Onda 1 por AP-06 e
+  **desce** para a Onda 2 num projeto que só tem AP-13. Subir acima do teto só acontece se você
+  atribuir a um finding severidade maior que a tabelada, e nesse caso o desvio já está justificado
+  no próprio finding. **TR que nenhum finding aciona não é agendado em onda alguma.**
 - **TR-01 e TR-06 primeiro, na onda que o plano lhes deu**, porque criam a estrutura de que os
   demais dependem. Aplicar TR-04 antes de haver camadas obriga a refazê-lo.
 - **Boot após cada TR.** O commit é o ponto de retorno; o boot é o localizador do defeito. Um
@@ -46,11 +67,11 @@ Localize a seção pelo cabeçalho literal `## TR-NN`.
 | TR-11 | 3 | AP-15 | Colapsar o laço de consultas numa ida só ao banco |
 | TR-12 | 3 | AP-16 | Substituir a chamada deprecated e fixar a regra no linter |
 | TR-13 | 3 | AP-18, AP-23 | Error handler centralizado com envelope único |
-| TR-14 | 3 (ou 1) | AP-19, AP-07 | Logger com níveis, timestamp e redação de sensíveis |
+| TR-14 | 1 | AP-19, AP-07 | Logger com níveis, timestamp e redação de sensíveis |
 | TR-15 | 3 | AP-17, AP-26 | Consolidar na abstração existente e remover o morto |
-| TR-16 | 3 | AP-21 | Migração versionada, seed separado, constraints declaradas |
+| TR-16 | 2 | AP-21 | Migração versionada, seed separado, constraints declaradas |
 | TR-17 | 3 | AP-22 | Paginação com defaults explícitos |
-| TR-18 | 4 | AP-25, AP-27, AP-20 | Nomear literais, renomear identificadores, restringir origem |
+| TR-18 | 3 | AP-25, AP-27, AP-20 | Nomear literais, renomear identificadores, restringir origem |
 
 AP-28 não tem TR: é reportado e não corrigido.
 
@@ -259,6 +280,13 @@ repetidas de login são barradas após o limite.
 idiomática da stack e a granularidade de controller (§7) já decididas.
 
 **Passos.**
+0. **Antes de criar qualquer diretório, decida se há o que criar.** Se a stack detectada já
+   materializa parte destas responsabilidades por convenção própria (`mvc-guidelines.md` §1,
+   regra 4), este TR **não ergue árvore nova**: move cada responsabilidade mal alocada para o
+   lugar que a convenção já define, e cria só o que a convenção não cobre e algum finding exige
+   — no lugar que ela indicaria. Os passos 1 a 4 descrevem o caso do monólito **sem** convenção
+   de camadas; nele os diretórios nascem porque não há nenhum. Erguer uma árvore paralela à
+   convenção duplica o papel em dois lugares e é desvio do alvo, não o alvo.
 1. **Extraia a persistência primeiro.** Mova toda montagem de consulta para repositórios por
    agregado. A camada de dados é a que tem menos dependências de saída, então move-se com o
    menor risco.
@@ -382,6 +410,10 @@ schema.
 assumir o papel de composition root.
 
 **Passos.**
+0. **Se a stack tiver container de injeção ou ciclo de inicialização próprio, ele já é o
+   composition root** (`mvc-guidelines.md` §5): declare ali o que precisa ser construído e pule
+   o passo 2. Reimplementar a montagem num entry point paralelo cria dois donos do ciclo de vida
+   e piora o acoplamento que este TR corrige. Os passos 1, 3 e 4 continuam valendo.
 1. Troque cada chamada a factory global no corpo por um parâmetro recebido no construtor ou na
    função.
 2. Faça o composition root instanciar tudo, na ordem config → infraestrutura → repositórios →
@@ -582,7 +614,7 @@ mesmo identificador de correlação da resposta.
 
 ## TR-14 — Logger com níveis, timestamp e redação de sensíveis
 
-**Onda 3 — antecipe para a Onda 1 quando existir AP-07 · Resolve AP-19, AP-07**
+**Onda 1 · Resolve AP-19, AP-07**
 **Pré-condição:** a configuração do destino e do nível veio do ambiente (TR-01).
 
 **Passos.**
@@ -650,19 +682,24 @@ const label = Reservation.statusLabel(reservation);
 ```
 
 **Risco.** Remoção baseada em busca textual apaga símbolo alcançado por reflexão, por
-carregamento dinâmico ou por configuração. Confirme a alcançabilidade pelo grafo de imports
-**e** por busca no repositório inteiro antes de apagar.
+carregamento dinâmico ou por configuração. Confirme a alcançabilidade pelo grafo de resolução da
+stack (`mvc-guidelines.md` §6) **e** por busca no repositório inteiro antes de apagar.
 
 **Verificação.** A abstração antes morta tem referências externas contadas maiores que zero; a
 aplicação sobe após a remoção; o manifesto não declara dependência que nenhum arquivo importa.
 
 ## TR-16 — Migração versionada, seed separado, constraints declaradas
 
-**Onda 3 · Resolve AP-21 · Pré-condição:** o schema efetivo foi capturado na Fase 1 e serve de
+**Onda 2 · Resolve AP-21 · Pré-condição:** o schema efetivo foi capturado na Fase 1 e serve de
 base para a primeira migração.
 
 **Passos.**
-1. Extraia a DDL do boot para uma migração versionada inicial que reproduza o schema atual.
+1. Extraia a DDL do boot para uma migração versionada inicial que reproduza o schema atual,
+   **na ferramenta de migração que o projeto já usa ou que é idiomática da stack detectada**.
+   Crie um diretório de migrações próprio **só** quando a stack não oferecer nenhuma. Se a stack
+   já tem sistema de migração, este TR o **adota** — inventar um segundo produz dois históricos
+   de schema, que é pior que o problema original. Onde não há DDL no boot porque a ferramenta
+   da stack já a governa, este AP não tinha finding: confirme antes de agir.
 2. Declare no schema as restrições que hoje só existem em código ou em lugar nenhum: chaves
    estrangeiras, unicidade, não-nulo, faixas — espelhando as invariantes de TR-08.
 3. Mova o seed para um script separado, executável sob demanda e nunca no boot. Remova
@@ -738,7 +775,7 @@ apenas a página.
 
 ## TR-18 — Nomear literais, renomear identificadores, restringir origem
 
-**Onda 4 · Resolve AP-25, AP-27, AP-20 · Pré-condição:** as ondas anteriores que executaram estão
+**Onda 3 · Resolve AP-25, AP-27, AP-20 · Pré-condição:** as ondas anteriores que executaram estão
 verdes e commitadas; as vazias não bloqueiam. Esta onda é a de menor risco e roda por último de
 propósito.
 

@@ -26,7 +26,7 @@ Não leia o projeto inteiro antes de pensar. A ordem abaixo maximiza informaçã
 1. **Manifesto de dependências** — declara stack, versões e scripts em poucas linhas.
 2. **Listagem recursiva de arquivos**, com tamanho — revela o entry point e a god class antes
    de qualquer leitura de conteúdo.
-3. **Entry point** — de onde parte o grafo de imports.
+3. **Entry points e configuração de carregamento** — de onde parte o grafo de resolução (§6).
 4. **Arquivos por tamanho decrescente** — concentração de linhas é concentração de decisão.
 5. **Arquivos de definição de schema ou migração**.
 
@@ -54,11 +54,12 @@ scripts de banco ou de build, e a Fase 3 precisa saber que existem.
 
 ## 2. Framework efetivo
 
-> **Framework efetivo = declarado no manifesto ∩ importado por algum arquivo alcançável.**
+> **Framework efetivo = declarado no manifesto ∩ resolvido por algum arquivo alcançável** (§6:
+> alcançável é o que o mecanismo de resolução da stack carrega, não só o que alguém importa).
 
 Os dois lados isolados enganam:
 
-- **Declarado e não importado** → não é a stack. É candidato a AP-26, e frequentemente revela a
+- **Declarado e não resolvido** → não é a stack. É candidato a AP-26, e frequentemente revela a
   arquitetura *pretendida e não implementada* — sinal de alto valor para a Fase 2.
 - **Importado e não declarado** → dependência implícita. A aplicação depende de algo que a
   instalação limpa não traz; registre como risco de reprodutibilidade.
@@ -81,6 +82,7 @@ Este é o fato que mais frequentemente se erra, e o erro é silencioso.
 $ python3 --version
 $ node --version
 $ java -version
+$ ruby --version
 $ php --version
 $ go version
 ```
@@ -129,17 +131,34 @@ Divergência de vocabulário entre tabela, rota e código é finding de AP-27; a
 
 ## 6. Arquitetura efetiva
 
-> **Mapeie o grafo de imports a partir do entry point. Não descreva a árvore de diretórios.**
+> **Mapeie o grafo de resolução de símbolos a partir dos entry points. Não descreva a árvore de
+> diretórios, e não confunda resolução com import textual.**
 
-Uma pasta chamada `services/` cujo conteúdo ninguém importa não é uma camada de serviço — é
-código morto com nome bonito, e tratá-la como camada leva a Fase 3 a construir sobre o que não
-existe.
+Uma pasta chamada `services/` que nada resolve não é uma camada de serviço — é código morto com
+nome bonito, e tratá-la como camada leva a Fase 3 a construir sobre o que não existe. Mas o
+inverso custa mais caro: tratar como morto o que a stack resolve sem import explícito condena a
+camada idiomática do framework a AP-26.
+
+**Grafo de resolução** é o conjunto de símbolos que a aplicação carrega em execução, por
+qualquer um dos mecanismos que a stack detectada use — e as stacks usam mecanismos diferentes:
+
+| Mecanismo | Como o símbolo chega | Evidência a procurar |
+|---|---|---|
+| Import/require explícito | citado nominalmente por outro arquivo | a própria declaração de import |
+| Autoload por convenção de caminho | o carregador deriva o símbolo do caminho do arquivo | a raiz de autoload declarada na configuração, e a convenção nome↔caminho |
+| Varredura de pacote por anotação/atributo | o container registra o que a varredura encontra | o pacote-base varrido e o marcador que qualifica a classe |
+| Registro em container ou arquivo de configuração | a ligação é declarada como dado, não como código | o registro que nomeia o símbolo |
+
+**Determine primeiro qual mecanismo a stack usa; só então percorra.** Import textual sozinho é
+insuficiente sempre que a stack não o usa como mecanismo primário, e nesse caso a árvore que a
+convenção varre **é** a evidência de alcançabilidade — não o `require` do arquivo de boot.
 
 Procedimento:
 
-1. Localize o entry point: script declarado no manifesto > entry point declarado > convenção da
-   stack > o arquivo que instancia o servidor.
-2. Percorra os imports transitivamente e monte o conjunto de módulos **alcançáveis**.
+1. Localize os entry points: script declarado no manifesto > entry point declarado > convenção
+   da stack > o arquivo que instancia o servidor. Podem ser mais de um; liste todos.
+2. Monte o conjunto de símbolos **alcançáveis** pelo mecanismo identificado acima — imports
+   transitivos, o que o autoloader ou a varredura carrega, e o que o container registra.
 3. Para cada diretório que aparenta ser camada, verifique se ao menos um símbolo seu é
    alcançável. Inalcançável entra em AP-26 e aciona a regra de `mvc-guidelines.md` §6.
 4. Para cada símbolo exportado, conte referências **fora** do módulo de origem. Importar não é

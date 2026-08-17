@@ -53,9 +53,10 @@ alterado antes do `y`.
 
 ### Arquitetura efetiva
 
-<Um parágrafo descrevendo o grafo de imports a partir do entry point: que responsabilidade
-cada módulo alcançável acumula, e quais camadas nominais são inalcançáveis. Descreva o que o
-código faz, não o que os nomes de diretório sugerem.>
+<Um parágrafo descrevendo o grafo de resolução a partir dos entry points, nomeando o mecanismo
+que a stack usa para resolver: que responsabilidade cada módulo alcançável acumula, e quais
+camadas nominais são inalcançáveis. Descreva o que o código faz, não o que os nomes de diretório
+sugerem — e não confunda "não importado" com "não alcançável".>
 
 ### Baseline de comportamento
 
@@ -66,7 +67,7 @@ código faz, não o que os nomes de diretório sugerem.>
 | <…> | <n> | <…> |
 | **Total (`M`)** | **<M>** | — |
 
-Baseline completo, com shape do corpo por endpoint, em `<BASELINE_PATH absoluto>`.
+Baseline completo, com media type e forma do corpo por endpoint, em `<BASELINE_PATH absoluto>`.
 Pré-existentes quebrados: <lista `método path → status`, ou "nenhum">.
 Não enumeráveis, fora de `M`: <lista e motivo, ou "nenhum">.
 
@@ -174,7 +175,8 @@ A peça que transforma o gate numa decisão informada. Preencha-a **prevendo** o
 TR do plano sobre o contrato de resposta, antes de executá-lo.
 
 Path, verbo e status code de sucesso são preservados por regra. O que entra aqui é mudança de
-**shape do corpo**, mudança de status para um mesmo cenário, e remoção de endpoint.
+**forma do corpo** ou do **media type**, mudança de status para um mesmo cenário, e remoção de
+endpoint.
 
 ````markdown
 | # | Endpoint | Mudança | Motivo | TR |

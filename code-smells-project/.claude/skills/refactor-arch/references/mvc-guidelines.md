@@ -35,8 +35,8 @@ Ordene as três coisas por força, da maior para a menor:
 
 1. **Responsabilidade única por camada** — inegociável. Uma camada que faz duas coisas não é
    uma camada, é um módulo com nome bonito.
-2. **Direção de dependência** — inegociável. É o que torna a arquitetura verificável por grafo
-   de imports, e não por opinião.
+2. **Direção de dependência** — inegociável. É o que torna a arquitetura verificável pelo grafo
+   de resolução (§6), e não por opinião.
 3. **Nome e posição dos diretórios** — negociável. Cede à convenção idiomática da stack
    detectada na Fase 1.
 
@@ -44,9 +44,32 @@ A regra de precedência existe porque uma árvore genérica imposta sobre uma st
 convenção própria produz um projeto que nenhum desenvolvedor daquela comunidade reconhece —
 e o custo de manutenção disso é maior que o ganho de uniformidade entre projetos diferentes.
 
+**4. Stack que já materializa as responsabilidades.** Quando a Fase 1 detectar que a stack
+carrega, por convenção própria, diretórios ou pacotes que já cumprem responsabilidades desta
+lista, a Fase 3 **adota essa árvore** e trabalha dentro dela: corrige as violações de
+responsabilidade e de direção onde elas estão, e cria **apenas** a responsabilidade que algum
+finding exige e que a convenção não cobre — no lugar que a própria convenção indicaria para ela.
+Erguer uma árvore paralela ao lado da convenção do framework é **desvio do alvo**, não o alvo:
+duplica o mesmo papel em dois lugares e viola a regra 1 no ato de tentar cumpri-la.
+
+**O gatilho não é alcançabilidade.** Módulo alcançável não é camada: camada é responsabilidade
+com **lugar convencionado**. Esta regra só se aplica quando a stack ou o framework **declara** a
+convenção de camadas — raiz de autoload, pacote-base varrido, ou estrutura de diretórios imposta
+pelo framework — e o lugar que ela convenciona existe no projeto. Um monólito cujos módulos são
+apenas alcançáveis por import explícito **não tem convenção a adotar**, por mais que seus
+arquivos tenham nome de camada: cai na §4, precedência 2 ou 3. Alcançabilidade (§6) decide se
+uma camada preexistente é adotada ou é AP-26; **é esta regra**, e só ela, que decide se existe
+convenção a adotar.
+
 ---
 
 ## 2. As sete camadas
+
+A coluna que normatiza é **Responsabilidade única**; o nome da camada é rótulo de referência
+deste arquivo. Uma stack cuja convenção funde duas destas responsabilidades num lugar só, ou as
+chame por outros nomes, continua conforme — desde que cada responsabilidade tenha **um** lugar
+identificável e a direção da §3 se preserve. O que não é negociável é uma responsabilidade sem
+lugar, ou espalhada por vários.
 
 | Camada | Responsabilidade única | Entrada | Saída |
 |---|---|---|---|
@@ -132,6 +155,7 @@ Aplique a variante da stack detectada; ela **vence** o layout genérico.
 | Python (framework com camadas próprias) | Respeite a nomenclatura do framework para o que ele já nomeia; crie apenas as camadas ausentes (tipicamente `services/` e `repositories/`). |
 | JavaScript / TypeScript | `src/` como raiz das camadas, arquivos em `camelCase` ou `kebab-case` conforme o já usado no projeto, sufixo no nome do arquivo (`*.service`, `*.repository`) quando o projeto já usar sufixos. |
 | Java / Kotlin | Pacotes sob a raiz do grupo, camada como último segmento (`...domain`, `...repository`, `...service`, `...web`); `resources/` para configuração. |
+| Ruby | Diretórios em `snake_case` sob a raiz de autoload do framework, nome do arquivo derivado do nome da classe; rotas em arquivo de configuração declarativo, migrações versionadas por timestamp no diretório do framework, e inicialização por arquivos de configuração em vez de um construtor manual do grafo. |
 | PHP | `src/` com PSR-4, `Namespace\Layer\ClassName`, uma classe por arquivo em `PascalCase`. |
 | Go | Pacotes por responsabilidade sob `internal/`, sem sufixo redundante no nome do tipo; `cmd/<app>/main.go` como composition root. |
 
@@ -150,6 +174,14 @@ Nunca misture duas convenções na mesma árvore. Um projeto com metade dos dire
 O composition root é o **único** ponto do projeto autorizado a instanciar infraestrutura. Ele
 lê a configuração, constrói repositórios, injeta-os nos serviços, injeta serviços nos
 controllers, registra as rotas e sobe o servidor.
+
+**Quando a stack já tem um.** Composition root é um papel, não um arquivo. Stacks com container
+de injeção ou com ciclo de inicialização próprio já o cumprem: o container **é** o composition
+root, e os arquivos de inicialização que a convenção define são onde a configuração entra. Nesse
+caso a Fase 3 **usa** o mecanismo existente — declara ali o que precisa ser construído — e
+**não** reimplementa a montagem do grafo num entry point paralelo. Reimplementá-lo cria dois
+donos do ciclo de vida dos objetos, que é um acoplamento pior do que o que TR-09 veio corrigir.
+O exemplo abaixo é a forma para stacks **sem** esse mecanismo.
 
 **Exemplo — Python [sintético]**
 
@@ -185,11 +217,20 @@ Projetos parcialmente organizados chegam com diretórios de camada já criados. 
 existe e recriar o que existe são erros simétricos, e a diferença entre eles é observável.
 
 > **Adote um diretório de camada preexistente se e somente se ao menos um dos seus símbolos
-> for alcançável a partir do entry point pelo grafo de imports.**
+> for alcançável a partir dos entry points pelo mecanismo de resolução da stack** — import
+> explícito, autoload por convenção, varredura de pacote ou registro em container. **Onde a
+> stack resolve por convenção, o diretório que a convenção varre é alcançável mesmo que nenhum
+> arquivo o importe nominalmente.**
+
+Qual dos quatro mecanismos vale aqui **não se redescobre nesta fase**: é fato determinado na
+Fase 1 e registrado no relatório junto da arquitetura efetiva. As Fases 2 e 3 leem o fato, não o
+procedimento que o produziu. Esta seção é a definição de alcançabilidade que o resto do pacote
+referencia — AP-26 e TR-15 apontam para cá, e nenhum a reformula.
 
 Procedimento:
 
-1. Parta do entry point identificado na Fase 1 e percorra o grafo de imports transitivamente.
+1. Parta dos entry points identificados na Fase 1 e percorra o grafo de resolução
+   transitivamente, pelo mecanismo que a Fase 1 determinou.
 2. Para cada símbolo exportado pelo diretório candidato, conte referências **fora** do módulo
    que o define. Importar não é usar: um import sem chamada não torna o símbolo alcançável.
 3. **Alcançável** → adote o diretório, preserve sua nomenclatura e **ligue** o que estiver

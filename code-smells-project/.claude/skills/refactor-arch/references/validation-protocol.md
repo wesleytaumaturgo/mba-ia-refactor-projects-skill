@@ -15,7 +15,9 @@ Princípio único deste arquivo, do qual tudo o mais deriva:
 
 Precedência, do mais confiável ao menos:
 
-1. **Script de execução declarado no manifesto** — é a intenção registrada do autor.
+1. **Comando de boot declarado pela stack** — script no manifesto, alvo do gerenciador de
+   build, ou executável que o framework instala. É a intenção registrada do autor, e nem toda
+   stack a expressa como campo de script.
 2. **Entry point declarado** no manifesto ou em configuração de empacotamento.
 3. **Convenção da stack detectada** aplicada ao arquivo que instancia o servidor.
 4. **Instrução no README do projeto** — última opção: costuma estar desatualizada, então
@@ -36,23 +38,35 @@ Execute **antes de qualquer escrita em código do projeto**, com o código intoc
 
 1. Suba a aplicação com o comando descoberto na §1.
 2. Para **cada** endpoint da tabela da Fase 1, envie uma requisição representativa e registre:
-   **status code**, **shape do corpo** (chaves e tipos, não os valores voláteis) e um resumo do
-   corpo. Para rotas com parâmetro, use um identificador que exista.
+   **status code**, **media type** da resposta, e a **forma do corpo** — que depende do media
+   type e não se presume:
+   - **Corpo estruturado** (objeto ou coleção serializada): chaves e tipos, nunca os valores
+     voláteis.
+   - **Corpo não estruturado** (documento renderizado, texto, binário): um **seletor estável**
+     que você consiga reavaliar depois — um elemento identificável do documento, os campos de um
+     formulário, o comprimento em faixa. Nunca invente um objeto de chaves para um corpo que não
+     tem chaves: isso fabrica um contrato que a aplicação nunca prometeu, e o critério 4 da §4
+     passaria a comparar uma invenção sua contra outra.
+   Para rotas com parâmetro, use um identificador que exista.
 3. Trate as rotas destrutivas por último e, quando possível, contra dado descartável. Um smoke
    test que apaga a base destrói o insumo das verificações seguintes.
 4. Registre o SHA do commit de baseline como a primeira linha do registro de ondas da §6.1.
 
 **Grave o baseline em `BASELINE_PATH`** — o caminho resolvido nas pré-condições, ancorado na raiz
-do repositório. Um registro por endpoint, com método, path, status code e shape do corpo: é o
-formato mínimo que os critérios 3 e 4 da §4 conseguem comparar. Contagem não serve — dois
-inteiros não reconstroem um contrato.
+do repositório. Um registro por endpoint, com método, path, status code, media type e a forma do
+corpo: é o formato mínimo que os critérios 3 e 4 da §4 conseguem comparar. Contagem não serve —
+dois inteiros não reconstroem um contrato.
+
+O baseline é um artefato da skill, não da stack: seu formato é o mesmo em qualquer projeto. O que
+varia é o campo de forma — `shape` para corpo estruturado, `selector` para o que não é.
 
 ```console
 $ cat "<BASELINE_PATH>"
 [
-  {"method":"GET",  "path":"/<collection>",      "status":200, "shape":{"items":"array","total":"number"}},
-  {"method":"GET",  "path":"/<collection>/<id>", "status":200, "shape":{"id":"number","name":"string"}},
-  {"method":"POST", "path":"/<collection>",      "status":201, "shape":{"id":"number"}, "note":"destructive-adjacent, ran last"}
+  {"method":"GET",  "path":"/<collection>",      "status":200, "media":"<structured media type>", "shape":{"items":"array","total":"number"}},
+  {"method":"GET",  "path":"/<collection>/<id>", "status":200, "media":"<structured media type>", "shape":{"id":"number","name":"string"}},
+  {"method":"GET",  "path":"/<page>",            "status":200, "media":"<document media type>",   "selector":{"title":"<stable text>","forms":1,"fields":["<name>"]}},
+  {"method":"POST", "path":"/<collection>",      "status":201, "media":"<structured media type>", "shape":{"id":"number"}, "note":"destructive-adjacent, ran last"}
 ]
 ```
 
@@ -100,8 +114,14 @@ critério é mais forte que o seguinte:
 | 1 | O endpoint existe (não é 404 novo) | **Vermelho.** Rota perdida na refatoração. |
 | 2 | Método e path idênticos | **Vermelho.** Superfície alterada — proibido. |
 | 3 | Status code idêntico ao do baseline | **Vermelho**, salvo se declarado em Breaking changes. |
-| 4 | Shape do corpo idêntico | **Vermelho**, salvo se declarado em Breaking changes. |
+| 4 | **Media type** idêntico **e** a forma do corpo idêntica **no mesmo termo em que o baseline a registrou** (§2): `shape` contra `shape`, `selector` contra `selector` | **Vermelho**, salvo se declarado em Breaking changes. |
 | 5 | Valores não-voláteis coerentes | **Vermelho**, salvo se você nomear o dado de teste que o próprio smoke test alterou. Divergência não explicada é vermelha. |
+
+**O critério 4 compara o que a §2 capturou, nunca um formato presumido.** Endpoint cujo baseline
+traz `selector` é reavaliado por aquele seletor; exigir dele um objeto de chaves produz vermelho
+onde não houve regressão — e vermelho aciona `git reset --hard` (§7). Media type que muda sem
+constar de Breaking changes é vermelho por si só, mesmo que o corpo continue equivalente: é
+mudança de contrato observável pelo cliente.
 
 Diferenças esperadas e **não** contabilizadas como vermelho: timestamps, identificadores
 gerados, ordem de coleção quando o baseline também não a garante, e o 401/403 que TR-05
