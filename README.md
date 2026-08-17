@@ -61,6 +61,8 @@ projeto — e são esses sinais, não os findings, que alimentam a skill.
 | AM-014 | HIGH | Regra de precificação na camada de acesso a dados | `models.py:256-262` | As faixas de desconto — regra mais volátil do e-commerce — estão codificadas dentro da função de relatório. |
 | AM-015 | MEDIUM | N+1 aninhado na listagem de pedidos | `models.py:187-193` | `GET /pedidos` custa `1 + P + (P × I)` queries: 100 pedidos de 5 itens viram 601 round-trips. |
 | AM-017 | MEDIUM | Bloco de validação copiado entre criação e atualização | `controllers.py:74-79` | Cópia literal de `controllers.py:30-35` que já divergiu: duas rotas aplicam contratos diferentes à mesma entidade. |
+| AM-023 | LOW | Magic numbers em regras de validação | `controllers.py:47-50` | Limites `2` e `200` são literais sem nome, sem relação com o schema, e a mensagem de erro não informa o teto ao cliente. |
+| AM-027 | LOW | Contrato de resposta inconsistente entre handlers | `controllers.py:140-142` | O envelope de resposta varia por handler sem regra: `sucesso` some em alguns erros e `total` aparece só numa listagem. |
 
 ### `ecommerce-api-legacy` — JavaScript (CommonJS) / Node + Express 4.22.1 + `sqlite3`
 
@@ -80,6 +82,7 @@ projeto — e são esses sinais, não os findings, que alimentam a skill.
 | AM-039 | MEDIUM | N+1 em cascata de três níveis no relatório | `src/AppManager.js:102-107` | Custa `1 + C + (C × E × 2)` queries: 20 cursos de 50 matrículas geram 2.021 idas ao banco. |
 | AM-040 | MEDIUM | Validação de entrada por teste de falsy | `src/AppManager.js:29-35` | Só testa presença de quatro campos; um `card` não-string lança `TypeError` em callback e derruba o processo. |
 | AM-045 | LOW | Import morto e driver carregado em `verbose()` | `src/AppManager.js:1-2` | `totalRevenue` importado e nunca usado sugere um acumulador que não existe; flag de depuração ativa em qualquer ambiente. |
+| AM-047 | LOW | Dados de seed embutidos no código de aplicação | `src/AppManager.js:18-21` | Dados de seed com senha em texto puro e ids presumidos são inseridos incondicionalmente a cada boot, misturando fixture com produção. |
 
 ### `task-manager-api` — Python 3.12 / Flask 3.0.0 + Flask-SQLAlchemy 3.1.1 (ORM)
 
@@ -97,6 +100,7 @@ projeto — e são esses sinais, não os findings, que alimentam a skill.
 | AM-060 | MEDIUM | Ausência de paginação em todas as listagens | `routes/task_routes.py:266-271` | Nenhum endpoint aceita limite ou cursor: o tamanho da resposta é função dos dados, não do contrato. |
 | AM-062 | MEDIUM | Regex de e-mail repetido em três pontos | `routes/user_routes.py:105-111` | Corrigir o padrão exige três edições, e criação e atualização já divergem na checagem de existência. |
 | AM-069 | LOW | Módulo utilitário inteiro é código morto | `utils/helpers.py:110-116` | Nenhum dos 16 símbolos públicos é usado, e as constantes mortas duplicam literais que as rotas aplicam à mão. |
+| AM-071 | LOW | Métodos de domínio declarados nos models e nunca invocados | `models/task.py:38-43` | `User.is_admin()` e três validações de domínio existem no model e nunca são chamadas — a regra real vive duplicada nas rotas. |
 
 ### Consolidado
 
@@ -108,7 +112,7 @@ projeto — e são esses sinais, não os findings, que alimentam a skill.
 | **Total** | **16** | **17** | **25** | **17** | **75** |
 
 Os números acima são os **totais reais dos dossiês**, não o recorte publicado nas tabelas por projeto
-— que reúne 42 findings dos 75. Os 33 restantes, com a mesma estrutura de evidência literal, estão em
+— que reúne 46 findings dos 75. Os 29 restantes, com a mesma estrutura de evidência literal, estão em
 [`.planning/analise-manual/`](.planning/analise-manual/): um arquivo por projeto, com os findings, a
 nota de calibragem de severidade e a tabela de sinais genéricos extraídos.
 
@@ -956,7 +960,7 @@ TOKEN=$(curl -s -X POST localhost:5000/login -H 'Content-Type: application/json'
 curl -s localhost:5000/health
 curl -s localhost:5000/users -H "Authorization: Bearer $TOKEN" | head -c 200
 curl -s -o /dev/null -w '%{http_code}\n' localhost:5000/users                 # 401 sem credencial
-curl -s "localhost:5000/tasks?limit=999" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))'  # 200 = teto
+curl -s "localhost:5000/tasks?limit=999" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))'  # 10 — resposta limitada ao seed, não ao pedido; teto real é PAGE_SIZE_MAX=200
 curl -s -o /dev/null -w '%{http_code}\n' localhost:5000/users \
      -H "Authorization: Bearer fake-jwt-token-1"                              # 401 — token forjado
 ```
