@@ -24,10 +24,7 @@ const makeRateLimiter = ({ max, windowMs }) => {
         const key = req.ip || 'unknown';
         const timestamps = (hits.get(key) || []).filter((t) => now - t < windowMs);
 
-        // Resposta montada aqui pelo mesmo motivo de auth.js: TR-13 a centraliza.
-        if (timestamps.length >= max) {
-            return res.status(429).send(new RateLimitExceededError().message);
-        }
+        if (timestamps.length >= max) return next(new RateLimitExceededError());
 
         timestamps.push(now);
         hits.set(key, timestamps);

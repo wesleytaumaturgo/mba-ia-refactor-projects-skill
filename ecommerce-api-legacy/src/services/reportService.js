@@ -2,43 +2,60 @@
 
 const { PAID } = require('./paymentGateway');
 
-// Regra de reconhecimento de receita: só pagamento liquidado compõe o faturamento.
-// TR-11 substitui a orquestração de consultas por uma ida só ao banco; a regra
-// permanece aqui, porque é decisão de domínio e não de acesso a dados.
-const makeReportService = ({ courseRepository, enrollmentRepository, userRepository, paymentRepository }) => ({
-    async financialReport() {
-        const courses = await courseRepository.findAll();
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 200;
+const UNKNOWN_STUDENT = 'Unknown';
 
-        return Promise.all(
-            courses.map(async (course) => {
-                const enrollments = await enrollmentRepository.findByCourseId(course.id);
+// Reagrupa em memória o resultado da consulta única, preservando a FORMA de saída
+// que o baseline tinha: { course, revenue, students: [{ student, paid }] }.
+function groupByCourse(rows) {
+    const byCourse = new Map();
 
-                const students = await Promise.all(
-                    enrollments.map(async (enrollment) => {
-                        const [user, payment] = await Promise.all([
-                            userRepository.findById(enrollment.user_id),
-                            paymentRepository.findByEnrollmentId(enrollment.id),
-                        ]);
-                        return {
-                            student: user ? user.name : 'Unknown',
-                            paid: payment ? payment.amount : 0,
-                            settled: Boolean(payment && payment.status === PAID),
-                        };
-                    })
-                );
+    for (const row of rows) {
+        if (!byCourse.has(row.course_id)) {
+            byCourse.set(row.course_id, {
+                course: row.course_title,
+                revenue: row.course_revenue,
+                students: [],
+            });
+        }
+        // LEFT JOIN sem matrícula produz linha com colunas nulas: curso sem aluno
+        // tem `students: []`, e não um aluno fantasma.
+        if (row.student_name !== null || row.paid_amount !== null) {
+            byCourse.get(row.course_id).students.push({
+                student: row.student_name ?? UNKNOWN_STUDENT,
+                paid: row.paid_amount ?? 0,
+            });
+        }
+    }
 
-                const revenue = students
-                    .filter((s) => s.settled)
-                    .reduce((total, s) => total + s.paid, 0);
+    return [...byCourse.values()];
+}
 
-                return {
-                    course: course.title,
-                    revenue,
-                    students: students.map(({ student, paid }) => ({ student, paid })),
-                };
-            })
+const makeReportService = ({ reportRepository }) => ({
+    // TR-17 / BC-6: a resposta passa a ser envelope paginado. A FORMA DO ITEM é
+    // preservada — { course, revenue, students: [{ student, paid }] } —, o que muda
+    // é o envoltório. O teto MAX_LIMIT é o que impede o cliente de reintroduzir o
+    // problema pedindo `limit=999999`; a página é aplicada na consulta, não fatiada
+    // em memória depois de trazer tudo.
+    async financialReport({ limit, offset } = {}) {
+        const effectiveLimit = Math.min(
+            Number.isInteger(limit) && limit > 0 ? limit : DEFAULT_LIMIT,
+            MAX_LIMIT
         );
+        const effectiveOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
+
+        const [rows, total] = await Promise.all([
+            reportRepository.financialRows({
+                settledStatus: PAID,
+                limit: effectiveLimit,
+                offset: effectiveOffset,
+            }),
+            reportRepository.countCourses(),
+        ]);
+
+        return { items: groupByCourse(rows), total, limit: effectiveLimit, offset: effectiveOffset };
     },
 });
 
-module.exports = { makeReportService };
+module.exports = { makeReportService, DEFAULT_LIMIT, MAX_LIMIT };

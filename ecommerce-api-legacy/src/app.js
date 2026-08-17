@@ -12,6 +12,7 @@ const { makeUserRepository } = require('./repositories/userRepository');
 const { makeEnrollmentRepository } = require('./repositories/enrollmentRepository');
 const { makePaymentRepository } = require('./repositories/paymentRepository');
 const { makeAuditLogRepository } = require('./repositories/auditLogRepository');
+const { makeReportRepository } = require('./repositories/reportRepository');
 
 const { makePasswordService } = require('./services/passwordService');
 const { makePaymentGateway } = require('./services/paymentGateway');
@@ -28,6 +29,7 @@ const { makeLogger } = require('./lib/logger');
 const { makeCache } = require('./lib/cache');
 const { makeAuthenticate } = require('./middlewares/auth');
 const { makeRateLimiter } = require('./middlewares/rateLimit');
+const { makeErrorHandler, notFoundHandler, correlationId } = require('./middlewares/errorHandler');
 
 // Composition root: ÚNICO ponto autorizado a instanciar infraestrutura.
 // Ordem: config → infraestrutura → repositórios → services → controllers → rotas.
@@ -45,6 +47,7 @@ async function main() {
     const enrollmentRepository = makeEnrollmentRepository(db);
     const paymentRepository = makePaymentRepository(db);
     const auditLogRepository = makeAuditLogRepository(db);
+    const reportRepository = makeReportRepository(db);
 
     const cache = makeCache({ ttlMs: 300000, maxEntries: 1000 });
     const passwordService = makePasswordService({ costFactor: config.passwordCostFactor });
@@ -74,12 +77,7 @@ async function main() {
         cache,
         logger,
     });
-    const reportService = makeReportService({
-        courseRepository,
-        enrollmentRepository,
-        userRepository,
-        paymentRepository,
-    });
+    const reportService = makeReportService({ reportRepository });
     const userService = makeUserService({
         userRepository,
         enrollmentRepository,
@@ -95,8 +93,11 @@ async function main() {
     const rateLimit = makeRateLimiter({ max: config.rateLimitMax, windowMs: config.rateLimitWindowMs });
 
     const app = express();
+    app.use(correlationId());
     app.use(express.json());
     app.use(buildRoutes({ checkoutController, reportController, userController, authenticate, rateLimit }));
+    app.use(notFoundHandler());
+    app.use(makeErrorHandler({ logger }));
 
     app.listen(config.port, config.host, () => {
         logger.info('server_started', { port: config.port, host: config.host, environment: config.nodeEnv });

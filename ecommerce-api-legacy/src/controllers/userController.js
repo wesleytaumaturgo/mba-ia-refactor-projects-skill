@@ -1,18 +1,12 @@
 'use strict';
 
-const { UserNotFoundError, UserHasEnrollmentsError } = require('../errors');
-
 const makeUserController = ({ userService }) => ({
     async remove(req, res) {
-        try {
-            await userService.remove(req.params.id);
-            return res.status(200).send('Usuário removido.');
-        } catch (error) {
-            // BC-9 (ND-5): usuário com matrícula passa a responder 409.
-            if (error instanceof UserHasEnrollmentsError) return res.status(409).send(error.message);
-            if (error instanceof UserNotFoundError) return res.status(404).send(error.message);
-            throw error;
-        }
+        const { rowsAffected } = await userService.remove(req.params.id);
+        // BC-7: o corpo de sucesso deixa de ser texto e passa a application/json.
+        // O texto confessional original ("...ficaram sujos no banco") sumiu porque
+        // deixou de ser verdadeiro: a FK ON DELETE RESTRICT de TR-16 impede órfãos.
+        return res.status(200).json({ removed: true, rowsAffected });
     },
 });
 
