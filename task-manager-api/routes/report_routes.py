@@ -4,12 +4,14 @@ from models.task import Task
 from models.user import User
 from models.category import Category
 from datetime import datetime, timedelta
+from middlewares.auth import public
 from utils.helpers import format_date, calculate_percentage
 import json
 
 report_bp = Blueprint('reports', __name__)
 
 @report_bp.route('/reports/summary', methods=['GET'])
+@public
 def summary_report():
 
     total_tasks = Task.query.count()
@@ -101,6 +103,7 @@ def summary_report():
     return jsonify(report), 200
 
 @report_bp.route('/reports/user/<int:user_id>', methods=['GET'])
+@public
 def user_report(user_id):
     user = User.query.get(user_id)
     if not user:
@@ -155,6 +158,7 @@ def user_report(user_id):
     return jsonify(report), 200
 
 @report_bp.route('/categories', methods=['GET'])
+@public
 def get_categories():
     categories = Category.query.all()
     result = []

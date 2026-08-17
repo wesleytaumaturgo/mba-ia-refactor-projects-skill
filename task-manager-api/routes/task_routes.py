@@ -3,12 +3,14 @@ from database import db
 from models.task import Task
 from models.user import User
 from models.category import Category
+from middlewares.auth import public
 from datetime import datetime
 import json, os, sys, time
 
 task_bp = Blueprint('tasks', __name__)
 
 @task_bp.route('/tasks', methods=['GET'])
+@public
 def get_tasks():
     try:
         tasks = Task.query.all()
@@ -63,6 +65,7 @@ def get_tasks():
         return jsonify({'error': 'Erro interno'}), 500
 
 @task_bp.route('/tasks/<int:task_id>', methods=['GET'])
+@public
 def get_task(task_id):
     task = Task.query.get(task_id)
     if task:
@@ -238,6 +241,7 @@ def delete_task(task_id):
         return jsonify({'error': 'Erro ao deletar'}), 500
 
 @task_bp.route('/tasks/search', methods=['GET'])
+@public
 def search_tasks():
     query = request.args.get('q', '')
     status = request.args.get('status', '')
@@ -271,6 +275,7 @@ def search_tasks():
     return jsonify(output), 200
 
 @task_bp.route('/tasks/stats', methods=['GET'])
+@public
 def task_stats():
     total = Task.query.count()
     pending = Task.query.filter_by(status='pending').count()

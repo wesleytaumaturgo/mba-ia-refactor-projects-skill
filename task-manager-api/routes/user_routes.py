@@ -1,7 +1,10 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, current_app, request, jsonify
 from database import db
 from models.user import User
 from models.task import Task
+from dto.user_dto import user_detail, user_identity, user_list_item, user_public
+from middlewares.auth import is_admin, public, require_role
+from security.tokens import issue_token
 from datetime import datetime
 import hashlib, json, re
 
@@ -12,16 +15,7 @@ def get_users():
     users = User.query.all()
     result = []
     for u in users:
-        user_data = {
-            'id': u.id,
-            'name': u.name,
-            'email': u.email,
-            'role': u.role,
-            'active': u.active,
-            'created_at': str(u.created_at),
-            'task_count': len(u.tasks)
-        }
-        result.append(user_data)
+        result.append(user_list_item(u, len(u.tasks)))
     return jsonify(result), 200
 
 @user_bp.route('/users/<int:user_id>', methods=['GET'])
@@ -30,14 +24,8 @@ def get_user(user_id):
     if not user:
         return jsonify({'error': 'Usuário não encontrado'}), 404
 
-    data = user.to_dict()
-
     tasks = Task.query.filter_by(user_id=user_id).all()
-    data['tasks'] = []
-    for t in tasks:
-        data['tasks'].append(t.to_dict())
-
-    return jsonify(data), 200
+    return jsonify(user_detail(user, [t.to_dict() for t in tasks])), 200
 
 @user_bp.route('/users', methods=['POST'])
 def create_user():
@@ -71,6 +59,9 @@ def create_user():
     if role not in ['user', 'admin', 'manager']:
         return jsonify({'error': 'Role inválido'}), 400
 
+    if role != 'user' and not is_admin():
+        return jsonify({'error': 'Permissão insuficiente para atribuir este papel'}), 403
+
     user = User()
     user.name = name
     user.email = email
@@ -82,8 +73,7 @@ def create_user():
         db.session.commit()
         print(f"Usuário criado: {user.id} - {user.name}")
 
-        response_data = user.to_dict()
-        return jsonify(response_data), 201
+        return jsonify(user_public(user)), 201
     except Exception as e:
         db.session.rollback()
         print(f"ERRO: {str(e)}")
@@ -119,6 +109,8 @@ def update_user(user_id):
     if 'role' in data:
         if data['role'] not in ['user', 'admin', 'manager']:
             return jsonify({'error': 'Role inválido'}), 400
+        if not is_admin():
+            return jsonify({'error': 'Permissão insuficiente para alterar o papel'}), 403
         user.role = data['role']
 
     if 'active' in data:
@@ -126,12 +118,13 @@ def update_user(user_id):
 
     try:
         db.session.commit()
-        return jsonify(user.to_dict()), 200
+        return jsonify(user_public(user)), 200
     except:
         db.session.rollback()
         return jsonify({'error': 'Erro ao atualizar'}), 500
 
 @user_bp.route('/users/<int:user_id>', methods=['DELETE'])
+@require_role('admin')
 def delete_user(user_id):
     user = User.query.get(user_id)
     if not user:
@@ -183,6 +176,7 @@ def get_user_tasks(user_id):
     return jsonify(result), 200
 
 @user_bp.route('/login', methods=['POST'])
+@public
 def login():
     data = request.get_json()
     if not data:
@@ -194,6 +188,15 @@ def login():
     if not email or not password:
         return jsonify({'error': 'Email e senha são obrigatórios'}), 400
 
+    limiter = current_app.config['LOGIN_RATE_LIMITER']
+    subject_key = f'user:{email}'
+    origin_key = f'ip:{request.remote_addr}'
+    allowed, retry_after = limiter.check(subject_key, origin_key)
+    if not allowed:
+        response = jsonify({'error': 'Muitas tentativas de login. Tente novamente mais tarde.'})
+        response.headers['Retry-After'] = str(retry_after)
+        return response, 429
+
     user = User.query.filter_by(email=email).first()
     if not user:
         return jsonify({'error': 'Credenciais inválidas'}), 401
@@ -204,8 +207,17 @@ def login():
     if not user.active:
         return jsonify({'error': 'Usuário inativo'}), 403
 
+    # Reidratação: o formato antigo é regravado no formato novo no primeiro login
+    # bem-sucedido, sem exigir nada do usuário.
+    if user.password_needs_rehash():
+        user.set_password(password)
+        db.session.commit()
+
+    limiter.reset(subject_key, origin_key)
+
+    settings = current_app.config['SETTINGS']
     return jsonify({
         'message': 'Login realizado com sucesso',
-        'user': user.to_dict(),
-        'token': 'fake-jwt-token-' + str(user.id)
+        'user': user_identity(user),
+        'token': issue_token(user, settings.secret_key, settings.token_ttl_seconds)
     }), 200
