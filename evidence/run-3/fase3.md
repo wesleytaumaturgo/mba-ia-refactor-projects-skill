@@ -695,8 +695,11 @@ O inventário, textual, como constava do relatório aprovado no gate:
 > F-001. **Apagar o arquivo não remove o segredo do histórico do repositório**, e é o histórico
 > que precisa ser rotacionado; a rotação é item NEEDS-DECISION do plano.
 
-O relatório menciona o arquivo 21 vezes. A credencial foi promovida a **ND-3**, aprovado no gate,
-e continua pendente de ação humana: apagar o arquivo **não** a removeu do histórico.
+O relatório menciona o arquivo 21 vezes. A credencial foi promovida a **ND-3**, aprovado no gate.
+Apagar o arquivo **não** a removeu do histórico — e a decisão registrada é **não removê-la de lá**:
+é credencial de fixture de um repositório de exercício, sem valor real, e reescrever o histórico
+invalidaria os SHAs que esta própria evidência usa como prova. Ver `.planning/04-achados-execucao.md`
+(AE-07).
 
 ### 6.2 `utils/` foi RELIGADO por TR-15, não removido
 

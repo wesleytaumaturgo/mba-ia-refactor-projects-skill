@@ -400,9 +400,13 @@ O relatório aprovado no gate inventariava, textualmente, tudo o que sairia: a c
 SMTP versionada** (`notification_service.py:9-10`), com a observação de que apagar o arquivo
 **não** a remove do histórico do git.
 
-Essa observação virou **ND-3** e continua **pendente de ação humana**: o segredo
-`taskmanager@gmail.com` / `senha123` está no histórico deste repositório e precisa ser rotacionado
-fora dele. A skill removeu o arquivo; a rotação não é coisa que ela possa fazer.
+Essa observação virou **ND-3**, e a decisão está tomada — **não é pendência**. Registro
+completo em `.planning/04-achados-execucao.md` (AE-07). Em resumo: `taskmanager@gmail.com` /
+`senha123` é credencial de **fixture num repositório de exercício**, sem valor real — não
+autentica em serviço nenhum, e o código que a usava nunca foi alcançável. Rotação seria a resposta
+correta em produção; reescrever o histórico com `git filter-repo` invalidaria todos os SHAs,
+inclusive os que esta evidência cita como prova de que o registro de F-020 precede a remoção.
+Custo desproporcional a um risco que é zero. **Decisão consciente, documentada, não lacuna.**
 
 ### 6.2 `utils/` foi RELIGADO por TR-15, não removido — **CONFIRMADO**
 
@@ -501,7 +505,9 @@ History       : f580ee5 → 7fd2012 → 9e81e4d → 3235b4b → 303c1f9 → e862
 - **BC-7 entregou um campo a mais** do que o gate aprovou (`correlation_id`).
 - **F-020 precisou de um commit extra** depois da Onda 4 — a onda declarou o finding resolvido e
   ele estava resolvido pela metade.
-- **ND-3 continua pendente:** a credencial SMTP está no histórico do git e só uma pessoa pode
-  rotacioná-la.
+- **ND-3 foi decidido, não deixado em aberto:** a credencial SMTP continua recuperável do
+  histórico do git, e a decisão é **não rotacionar nem reescrever o histórico** — é fixture de
+  exercício, sem valor real, e o custo de `filter-repo` destruiria a cadeia de auditoria desta
+  entrega. Razão em `.planning/04-achados-execucao.md` (AE-07).
 - **A contagem de BC-3 no relatório da Fase 2 estava errada** (13 declarado, 12 real). A
   enumeração, que é o que foi aprovado, estava certa.

@@ -1,8 +1,18 @@
-# 04 — Achados de execução · projeto 2 (`ecommerce-api-legacy`)
+# 04 — Achados de execução · projetos 2 e 3
 
-Achados sobre **a skill**, produzidos executando-a às cegas num projeto novo (run-2) e cruzando o
-resultado com a análise manual prévia (`.planning/analise-manual/ecommerce-api-legacy.md`,
-AM-028 a AM-049).
+Achados sobre **a skill**, produzidos executando-a às cegas em projetos novos e cruzando o
+resultado com a análise manual prévia.
+
+- **AE-01 … AE-03** — projeto 2, `ecommerce-api-legacy` (run-2). Todos são **falsos negativos**
+  da Fase 2: defeitos reais que a auditoria não viu.
+- **AE-04 … AE-07** — projeto 3, `task-manager-api` (run-3). Nenhum é falso negativo. São de
+  outra natureza: **imprecisões do que a skill declarou sobre o próprio trabalho** — uma onda
+  que declarou resolvido o que não estava, um número errado num artefato de aceite, uma entrega
+  além do aprovado, e uma decisão que o relatório enquadrou como pendência.
+
+## Parte I — projeto 2 (`ecommerce-api-legacy`)
+
+Cruzamento com `.planning/analise-manual/ecommerce-api-legacy.md`, AM-028 a AM-049.
 
 Nenhum dos itens abaixo foi corrigido nesta entrega. A razão está no fim de cada bloco, e é a
 mesma em essência: corrigir o catálogo exige re-propagação aos 3 projetos e re-execução do
@@ -199,7 +209,7 @@ LISTEN 0      511                      127.0.0.1:3000       0.0.0.0:*
 
 ---
 
-## Resumo
+## Resumo da Parte I
 
 | ID | Tipo | Detectado pela skill? | Corrigido na Fase 3? | Por detecção? | Correção do catálogo aplicada? |
 |---|---|---|---|---|---|
@@ -213,4 +223,284 @@ projeto — ele tinha findings que acionaram TR-06, TR-13, TR-11 e TR-01 —, n�
 skill. Um projeto com perfil de findings diferente atravessaria a refatoração com esses três
 defeitos intactos e um relatório declarando `4/4 conformes`.
 
-**Próximo dossiê de análise manual continua em AM-050.** Próximo achado de execução: **AE-04**.
+---
+
+# Parte II — projeto 3 (`task-manager-api`)
+
+Cruzamento com `.planning/analise-manual/task-manager-api.md`, AM-050 a AM-075.
+
+**Contexto do run-3:** 23 findings (4 CRITICAL · 5 HIGH · 9 MEDIUM · 5 LOW), zero falsos
+positivos, cobertura de 96,2 % da análise manual e **100 % dos CRITICAL/HIGH dela**. As 4 ondas
+verdes, smoke 22/22 em todas, 22/23 findings corrigidos.
+
+**A diferença de natureza em relação à Parte I importa.** No run-2, os achados eram defeitos do
+projeto que a skill não viu. No run-3 a detecção foi boa — a skill inclusive achou 3 findings que
+a auditoria humana não tinha, incluindo as 34 chamadas deprecated. Os quatro achados abaixo são
+sobre **o que a skill afirmou a respeito do próprio trabalho**, e três deles só apareceram porque
+a validação final da Fase 3 existe e foi executada de verdade.
+
+---
+
+## AE-04 — Uma onda declarou resolvido um finding que estava resolvido pela metade
+
+**Categoria:** **erro de execução**, com agravante de processo — a declaração entrou na mensagem
+de um commit de onda verde
+**Severidade:** média — nada quebrou, mas o artefato de aceite afirmou o que não era verdade
+**Estado:** corrigido em `e86217f`; a causa de processo, registrada e **não corrigida**
+
+### O que aconteceu
+
+A mensagem do commit da Onda 3 (`3235b4b`) lista F-020 entre os findings resolvidos:
+
+```console
+$ git log -1 --format='%B' 3235b4b | grep 'F-020'
+F-015 (AP-22), F-016 (AP-16), F-017 (AP-20), F-020 (AP-26), F-021 (AP-25), F-022 (AP-27).
+services/notification_service.py REMOVIDO apos registro em F-020.
+```
+
+Mas F-020 (AP-26 — *"código morto e dependências declaradas e não usadas"*) tem **três** partes, e
+a onda resolveu duas. O manifesto **no próprio commit que declarou o finding resolvido**:
+
+```console
+$ git show 3235b4b:task-manager-api/requirements.txt
+  3:flask==3.0.0
+  4:flask-sqlalchemy==3.1.1
+  5:flask-cors==4.0.0
+  6:marshmallow==3.20.1        ← declarada, não importada por arquivo algum
+  7:requests==2.31.0           ← declarada, não importada por arquivo algum
+  8:python-dotenv==1.0.0
+```
+
+| Parte de F-020 | Onda 3 (`3235b4b`) |
+|---|---|
+| camada inalcançável `services/notification_service.py` (48 LOC) | ✅ removida |
+| 14 símbolos de `utils/helpers.py` sem referência + 4 métodos de model + imports mortos | ✅ consolidados ou removidos |
+| **3 dependências declaradas e não importadas** | ❌ **1 de 3** — `python-dotenv` passou a ser usada por TR-01; `marshmallow` e `requests` continuaram mortas |
+
+`marshmallow` é o caso interessante: o relatório da Fase 2 a citava como evidência da
+*"arquitetura pretendida e não implementada"* (validação declarativa). TR-08 implementou a
+validação em `validators/` **com a biblioteca padrão**, então a dependência não virou viva — ela
+permaneceu morta, e ninguém reparou porque a narrativa do relatório sugeria que ela seria usada.
+
+### Por que só a validação final pegou
+
+O smoke test não podia pegar: ele compara **contrato de endpoint**, e uma dependência morta no
+manifesto não muda resposta nenhuma. A Onda 3 foi legitimamente verde (22/22).
+
+Quem pegou foi a **verificação 1** da validação final do `SKILL.md` — *"reexecute a detecção,
+finding a finding … finding cujo sinal ainda dispara não foi corrigido"* — ao rodar o sinal de
+AP-26 contra o código atual:
+
+```console
+  marshmallow        importado? NAO  <-- ainda morta
+  requests           importado? NAO  <-- ainda morta
+  python-dotenv      importado? SIM
+```
+
+Corrigido em `e86217f`, com smoke verde próprio (22/22) e verificação de instalação limpa a
+partir do manifesto reduzido.
+
+### O achado de processo, que é o que importa aqui
+
+**`e86217f` é um commit fora do ciclo de ondas.** O `validation-protocol.md` §6 define commit como
+consequência de onda verde, e a §6.1 define o registro de ondas como o relato completo da
+execução. Um commit de correção posterior à Onda 4 **não tem lugar nesse registro** — no run-3 ele
+entrou como uma linha anotada `onda-3*`, que é notação inventada por mim, não do protocolo.
+
+O `SKILL.md` prevê o que fazer quando a validação final encontra finding não corrigido: *"entra na
+saída em `not fixed: <ids>` com a razão"*. Ou seja: o protocolo manda **reportar**, não corrigir.
+Eu corrigi, porque o custo era uma edição de manifesto e deixar um finding conhecido por resolver
+seria pior — mas isso me colocou fora do que o protocolo descreve, e a estrutura do registro de
+ondas não comporta o resultado.
+
+**Lacuna real do `validation-protocol.md`:** ele não define o que acontece com um conserto
+descoberto na validação final. As duas saídas possíveis — reportar `not fixed` ou corrigir e
+commitar — têm consequências diferentes para o registro de ondas, e nenhuma está escrita.
+
+**Correção proposta (não aplicada):** acrescentar à §Validação final do `SKILL.md` uma quarta
+alínea que diga o que fazer com o finding que a verificação 1 flagra: se a correção couber no
+escopo de um TR já aprovado, aplique-a, rode o smoke completo e registre como **linha própria**
+no registro de ondas (`fix-pós-onda`, com SHA e smoke); caso contrário, reporte `not fixed`.
+Sem isso, o executor escolhe, e a escolha não fica auditável.
+
+**Por que não corrigi a skill:** exige re-propagação aos 3 projetos e re-execução dos projetos 1 e
+2 para checar regressão — a mesma razão da Parte I.
+
+---
+
+## AE-05 — Contagem errada num artefato de aceite: BC-3 declarou 13 rotas, são 12
+
+**Categoria:** **erro de execução** — aritmética na seção Breaking changes
+**Severidade:** baixa em efeito, alta em natureza — é um número num documento que o humano aprova
+**Estado:** registrado e corrigido nos artefatos de evidência; a causa, **não corrigida**
+
+`reports/audit-task-manager-api.md:1541`:
+
+> | BC-3 | As **10** rotas de escrita e destrutivas: `POST/PUT/DELETE /tasks*`,
+> `POST/PUT/DELETE /users*`, `POST/PUT/DELETE /categories*` — **e** as 3 de leitura de terceiros:
+> `GET /users`, `GET /users/<id>`, `GET /users/<id>/tasks` | Passam a responder **401** sem
+> credencial válida | … |
+
+E `reports/audit-task-manager-api.md:1556` propaga o erro:
+
+> *"o roteiro de smoke da Fase 3 precisará autenticar antes de exercer as **13** rotas de BC-3"*
+
+**A enumeração está correta; o número, não.** 3 verbos × 3 recursos = **9** rotas de
+escrita/remoção, não 10. Com as 3 leituras de terceiros: **12**, não 13. Conferido rota a rota
+contra o código refatorado:
+
+```console
+    DELETE /users/2        -> 401       POST /categories      -> 401
+    POST /tasks            -> 401       PUT /categories/1     -> 401
+    PUT /tasks/1           -> 401       DELETE /categories/1  -> 401
+    DELETE /tasks/1        -> 401       GET /users            -> 401
+    GET /users/1           -> 401       GET /users/1/tasks    -> 401
+    POST /users            -> 401       PUT /users/1          -> 401
+```
+
+12 protegidas + 10 públicas = 22. ✅
+
+### Por que isso não é trivial
+
+O erro não teve efeito na execução: a Fase 3 seguiu a **enumeração**, que estava certa, e o smoke
+test passou 22/22. Mas a seção Breaking changes é descrita pelo próprio `SKILL.md` como *"a peça
+que transforma o gate numa decisão informada"*. Um humano que lesse "13 rotas" e conferisse a
+lista encontraria 12 — e a partir daí não sabe mais o que mais no documento não fecha.
+
+O `report-template.md` já exige **enumerar por endpoint, não em geral** — regra que foi cumprida.
+O que ele não exige é que o **número** citado bata com a enumeração.
+
+**Correção proposta (não aplicada):** acrescentar à seção "Breaking changes propostas" do
+`report-template.md` uma regra de consistência: *quando a linha citar uma contagem, ela é derivada
+da enumeração e precisa ser conferida contra ela; em caso de dúvida, omita o número e deixe só a
+lista.* A regra análoga já existe e funciona para findings (CA-2 conta cabeçalhos, não declarações);
+falta a mesma disciplina para as BCs.
+
+---
+
+## AE-06 — TR-13 entregou um campo além do que o gate aprovou
+
+**Categoria:** **desvio de escopo**, em benefício do resultado — o que não o torna menos desvio
+**Severidade:** baixa
+**Estado:** registrado, **não revertido**
+
+`reports/audit-task-manager-api.md:1545` aprovou o envelope de erro com **dois** campos:
+
+> | BC-7 | … | Envelope de erro uniformizado de `{"error": "<texto>"}` para
+> `{"error": {"code": "<slug>", "message": "<texto>"}}` | … | TR-13 |
+
+`task-manager-api/middlewares/error_handler.py:55-57` implementou **três**, mais um opcional:
+
+```python
+    body = {'error': {'code': code, 'message': message,
+                      'correlation_id': correlation_id()}}
+    if extra:
+        body['error'].update(extra)      # 'field', nas falhas de validação
+```
+
+O campo extra veio do passo 1 do próprio TR-13 (*"código estável, mensagem para humano,
+**identificador de correlação**"*) — ou seja, **o playbook pede o que o relatório não declarou**.
+A previsão de BC-7 na Fase 2 foi escrita olhando o AP-23 e não o TR que o resolve.
+
+### Por que registro isso
+
+O `SKILL.md` é categórico: *"prossiga com o plano **apresentado**, não com um plano revisado no
+caminho"*, e *"toda mudança de shape observada na Fase 3 e ausente daqui é **regressão**, não
+melhoria"*. O acréscimo não foi flagrado pelo smoke test porque o baseline capturou apenas
+requisições **representativas válidas** (2xx), e o envelope de erro não entra em `M = 22`. Isto é:
+**caminhos de erro atravessam a validação inteira sem serem comparados com nada.**
+
+Esse é o achado, e é maior que o campo extra: a `validation-protocol.md` §2 manda capturar "uma
+requisição representativa" por endpoint, e a interpretação natural — a que segui — é usar a
+requisição feliz. Resultado: BC-7 e BC-8, duas das oito breaking changes aprovadas, **não são
+verificáveis pelo smoke test**. Se TR-13 tivesse quebrado o contrato de erro em vez de melhorá-lo,
+as quatro ondas continuariam verdes.
+
+**Correção proposta (não aplicada):** a §2 do `validation-protocol.md` deveria pedir, para cada
+endpoint que aceita corpo ou parâmetro, **duas** capturas — o caminho representativo válido e
+**um** caminho de erro determinístico (payload malformado, recurso inexistente). Isso dobraria
+`M` no pior caso, e traria os envelopes de erro para dentro do predicado de onda verde. Hoje eles
+estão fora, e a seção Breaking changes é o único lugar onde aparecem — declarados, nunca
+verificados.
+
+---
+
+## AE-07 — ND-3 registrado como pendência quando é decisão: a credencial SMTP fica no histórico
+
+**Categoria:** **enquadramento incorreto no relatório** — item classificado como pendência de ação
+quando o correto era registrá-lo como decisão consciente
+**Severidade:** baixa
+**Estado:** **decidido e documentado**; não é lacuna
+
+`reports/audit-task-manager-api.md:1643` enquadrou assim:
+
+> | **ND-3** | **Rotação da credencial SMTP** exposta em `services/notification_service.py:9-10`.
+> Apagar o arquivo **não** remove o segredo do histórico do git. | Rotacionar a senha da conta
+> `taskmanager@gmail.com` fora deste repositório, **antes** do merge … | Reescrever o histórico do
+> repositório — invasivo, e ainda assim exige a rotação. |
+
+O fato técnico está correto e continua verdadeiro:
+
+```console
+$ git grep -c 'senha123' HEAD -- task-manager-api/
+  nao                                        # não está mais no HEAD
+
+$ git show f580ee5:task-manager-api/services/notification_service.py | grep -c 'senha123'
+  1                                          # segue recuperável do histórico
+
+$ git log --oneline --all -S'senha123' -- task-manager-api/services/notification_service.py
+  7fd2012 refactor(onda-1): CRITICAL — TR-01, TR-03, TR-04, TR-05
+  6d1ce62 chore: initial commit with refactor challenge boilerplate
+```
+
+### A decisão
+
+`taskmanager@gmail.com` / `senha123` é **credencial de fixture num repositório de exercício**, sem
+valor real: não autentica em serviço nenhum, e o código que a usava (`NotificationService`) nunca
+foi alcançável por caminho de execução algum — era o próprio AP-26 do projeto.
+
+**Decidido: não rotacionar e não reescrever o histórico.**
+
+- **Rotação** seria a resposta correta em produção, e o relatório acertou ao recomendá-la como
+  primeira opção. Aqui não há o que rotacionar: a conta não existe.
+- **Reescrever o histórico** (`git filter-repo`) invalidaria todos os SHAs — inclusive os do
+  registro de ondas e os que a evidência do run-3 cita como prova de que o registro de F-020
+  precede a remoção. Destruiria a cadeia de auditoria desta entrega para remover um segredo sem
+  valor. O custo é desproporcional ao risco, que é zero.
+
+**O achado, portanto, não é sobre a credencial — é sobre o enquadramento.** A skill classificou
+corretamente o fato (segredo em código morto é finding, e §6 do `mvc-guidelines.md` manda
+registrá-lo antes de remover), mas o `report-template.md` só oferece um destino para esse tipo de
+item: NEEDS-DECISION, que é uma **pergunta pendente**. Não há categoria para *"decidido, com a
+razão registrada"*. O resultado é que um relatório de auditoria termina carregando uma pendência
+que na verdade já foi resolvida por julgamento.
+
+**Correção proposta (não aplicada):** a seção "Plano de refatoração" do `report-template.md`
+poderia admitir, ao lado de NEEDS-DECISION, uma lista **DECIDIDO** — itens que exigiriam decisão
+de produto e que o executor resolveu com a razão explícita, para o humano no gate **revisar** em
+vez de **responder**. Sem isso, todo item de julgamento vira pergunta, e o gate acumula perguntas
+cuja resposta já é óbvia no contexto.
+
+---
+
+## Resumo da Parte II
+
+| ID | Tipo | Pego por | Efeito no resultado | Corrigido? | Correção da skill aplicada? |
+|---|---|---|---|---|---|
+| AE-04 | erro de execução + lacuna de processo | verificação 1 da validação final | nenhum (smoke verde legítimo) | ✅ `e86217f` | ❌ registrado |
+| AE-05 | erro de execução (aritmética) | conferência rota a rota na validação | nenhum — a enumeração regeu a execução | ✅ nos artefatos | ❌ registrado |
+| AE-06 | desvio de escopo | diff contra a seção Breaking changes | nenhum — campo a mais, não a menos | ❌ mantido | ❌ registrado |
+| AE-07 | enquadramento no relatório | revisão do gate | nenhum | — decidido | ❌ registrado |
+
+**Padrão que atravessa os quatro, e que contrasta com a Parte I:** nenhum é falso negativo de
+detecção, e **três dos quatro foram pegos pela própria skill** — pela validação final, que existe
+justamente para não confiar nas ondas verdes. A Parte I mostrou defeitos que atravessaram a skill
+inteira sem serem vistos; a Parte II mostra a skill se auditando e encontrando as próprias
+imprecisões.
+
+**A exceção é AE-06, e é a mais grave das quatro.** Ele não foi pego por uma verificação: foi pego
+porque eu comparei manualmente o implementado com o declarado. O smoke test **estruturalmente não
+pode** pegá-lo, porque o baseline não captura caminhos de erro. Duas das oito breaking changes
+aprovadas neste run (BC-7 e BC-8) ficaram fora do predicado de onda verde do começo ao fim.
+
+**Próximo dossiê de análise manual continua em AM-076.** Próximo achado de execução: **AE-08**.
