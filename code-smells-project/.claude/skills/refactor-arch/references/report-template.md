@@ -1,10 +1,12 @@
 # Report Template — relatório de auditoria da Fase 2
 
-Estrutura literal do artefato gravado em `reports/audit-<nome-do-projeto>.md`.
+Estrutura literal do artefato gravado em `REPORT_PATH`, resolvido nas pré-condições do
+`SKILL.md`: o caminho passado pelo invocador, ou o default ancorado na raiz do repositório.
 
-Gravar este arquivo é a **única** escrita permitida antes do gate: é artefato novo e aditivo,
-não modificação do projeto. Nenhum arquivo de código, manifesto, configuração ou diretório é
-criado, movido ou alterado antes do `y`.
+Gravar este arquivo é **uma das duas** escritas permitidas antes do gate — a outra é o baseline
+em `BASELINE_PATH` (`SKILL.md`, pré-condições): ambos são artefato novo e aditivo, não modificação
+do projeto. Nenhum arquivo de código, manifesto, configuração ou diretório é criado, movido ou
+alterado antes do `y`.
 
 ## Regras de preenchimento
 
@@ -21,6 +23,10 @@ criado, movido ou alterado antes do `y`.
 - **Confiança** declarada por finding: ALTA quando a evidência é autossuficiente; MÉDIA quando
   depende de uma inferência que você nomeia; nunca reporte com confiança BAIXA — investigue
   mais ou descarte.
+- **Baseline resumido obrigatório.** A seção "Baseline de comportamento" traz a contagem por
+  método e por status e o total `M`, e cita o caminho absoluto de `BASELINE_PATH`. É o que
+  permite ao humano no gate saber o que a Fase 3 promete preservar — e `M` é o denominador de
+  toda onda (`validation-protocol.md` §4.1).
 - **Idioma:** português no texto, inglês nos nomes técnicos e nos blocos de console.
 
 ---
@@ -50,6 +56,21 @@ criado, movido ou alterado antes do `y`.
 <Um parágrafo descrevendo o grafo de imports a partir do entry point: que responsabilidade
 cada módulo alcançável acumula, e quais camadas nominais são inalcançáveis. Descreva o que o
 código faz, não o que os nomes de diretório sugerem.>
+
+### Baseline de comportamento
+
+| Método | Endpoints | Status codes observados |
+|---|---|---|
+| GET | <n> | 200 ×<n> · 404 ×<n> |
+| POST | <n> | 201 ×<n> · 400 ×<n> |
+| <…> | <n> | <…> |
+| **Total (`M`)** | **<M>** | — |
+
+Baseline completo, com shape do corpo por endpoint, em `<BASELINE_PATH absoluto>`.
+Pré-existentes quebrados: <lista `método path → status`, ou "nenhum">.
+Não enumeráveis, fora de `M`: <lista e motivo, ou "nenhum">.
+
+`M` é o denominador de toda onda da Fase 3: onda verde exige `M/M` conformes.
 
 ## Sumário
 
@@ -119,16 +140,27 @@ Quando a severidade atribuída divergir da tabelada no catálogo, acrescente uma
 Existe para tornar a auditoria falsificável. Sem ela, um relatório com 20 findings e um
 relatório que reporta os 28 APs por reflexo são indistinguíveis para quem lê.
 
-Escreva uma linha por categoria **verificada**, dizendo o que foi procurado e por que não
-produziu finding. Não liste o que você não procurou.
+Escreva uma linha por AP que **não produziu finding**, em um dos três estados definidos em
+`antipattern-catalog.md` ("Como usar cada entrada"), e **nomeie o estado na linha**:
+
+- **não encontrado** — o AP se aplica à stack, o sinal foi respondido e a resposta foi "não".
+- **não aplicável** — os fatos da Fase 1 não satisfazem o escopo da coluna `Aplica a` do AP.
+  Diga qual fato o exclui.
+- **não verificável** — o AP se aplica, mas falta um fato da Fase 1 para responder o sinal.
+  Nunca colapse este estado em "não encontrado": ausência de verificação não é ausência de defeito.
+
+Ao fim, cada um dos 28 APs do catálogo está em findings ou em um destes três estados. Não liste
+categoria que não seja um AP do catálogo.
 
 ````markdown
-- **Mass assignment (AP-14):** não encontrado — os caminhos de escrita atribuem campo a campo,
+- **Mass assignment (AP-14) — não encontrado:** os caminhos de escrita atribuem campo a campo,
   com allowlist implícita pela própria assinatura.
-- **Rate limiting (AP-24):** não aplicável no estado atual — não há autenticação a proteger.
-  Passa a ser exigido assim que TR-05 for aplicado, e está no plano da Onda 1 por isso.
-- **Deprecated API (AP-16):** verificado contra o runtime <versão real> do ambiente; nenhuma
-  chamada deprecated nos caminhos alcançáveis.
+- **Rate limiting (AP-24) — não aplicável:** não há autenticação a proteger no estado atual, e o
+  escopo do AP é "APIs com autenticação". Como não existe finding de AP-24, ele **não agenda TR
+  algum**: o controle de taxa entra como parte de TR-05, na onda do finding que de fato aciona
+  esse TR — aqui, F-00X (AP-05, CRITICAL, Onda 1).
+- **Deprecated API (AP-16) — não encontrado:** verificado contra o runtime <versão real> do
+  ambiente; nenhuma chamada deprecated nos caminhos alcançáveis.
 ````
 
 A terceira linha é o modelo a seguir para AP-16: cite a versão contra a qual você verificou.
@@ -177,8 +209,9 @@ Agrupado por onda, porque é assim que a Fase 3 executa e é assim que o gate ap
 | TR-06 | F-001, F-006 | `repositories/…`, `services/…`, `controllers/…`, `routes/…` | todos | — |
 ````
 
-Repita para as Ondas 2, 3 e 4. Ao fim, uma linha por onda com o critério de aceite:
-`smoke test <n>/<n> endpoints conformes → commit`.
+Repita para cada onda que recebeu TR. Onda sem TR atribuído entra como `Onda N — vazia, nenhum
+TR`: é o que torna o plano uma partição verificável no gate. Ao fim, uma linha por onda com TR e o
+critério de aceite: `smoke test <n>/<n> endpoints conformes → commit`.
 
 **Itens NEEDS-DECISION.** Liste separadamente o que exige decisão de produto e que a skill não
 decide sozinha — política de senha, retenção de dados pessoais, remoção de funcionalidade.
@@ -195,7 +228,7 @@ O relatório termina exatamente assim, e o agente reproduz o mesmo prompt no con
 ## Próximo passo
 
 Total: **<n> findings** (<n> CRITICAL · <n> HIGH · <n> MEDIUM · <n> LOW) ·
-**<n> breaking changes** propostas · plano em **4 ondas**.
+**<n> breaking changes** propostas · plano em **<n> ondas com TR** (vazias: <lista ou "nenhuma">).
 
 Nenhum arquivo do projeto foi modificado até aqui.
 

@@ -13,6 +13,14 @@ varredura é a ordem deste catálogo, e pular entradas produz um relatório envi
 - **NÃO é finding quando** — limite superior, aplicado antes de escrever a entrada. Sem ele os
   28 APs aparecem em todo projeto e o relatório vira preenchimento de cota — a falha mais cara
   desta fase, porque derruba a credibilidade dos findings verdadeiros junto.
+- **Aplica a** — escopo em que o sinal faz sentido, declarado na coluna homônima do índice.
+  Separa "procurei e não achei" de "não havia o que procurar". Todo AP que não vira finding sai
+  desta fase em **um de três estados**, e o relatório nomeia qual:
+  **não encontrado** (o escopo se aplica, o sinal foi respondido "não") ·
+  **não aplicável** (os fatos da Fase 1 não satisfazem o escopo — diga qual fato exclui) ·
+  **não verificável** (o escopo se aplica, mas falta um fato da Fase 1 para responder o sinal;
+  caso típico de AP-16 sem a versão real do runtime). Os três vão para a seção "o que não foi
+  encontrado" do relatório; nenhum deles é finding, e nenhum deles agenda TR.
 - **Manifestações por stack** — só para reconhecer a forma em código concreto. O sinal continua
   sendo a pergunta estrutural; a manifestação é ilustração.
 
@@ -27,48 +35,47 @@ Todos os exemplos são **sintéticos**, sobre um domínio fictício de reservas.
 | **MEDIUM** | Degrada correção sob carga, mascara defeitos ou multiplica o custo de cada mudança futura. | 3 |
 | **LOW** | Custo de leitura e manutenção, sem efeito observável em produção. | 4 |
 
-**A onda é propriedade do finding, não do TR.** Cada AP declara sua onda padrão. Quando um TR
-rotulado para uma onda posterior resolve, naquele projeto, um finding de severidade maior,
-antecipe o TR para a onda do finding. Exemplo: a transformação de logging pertence à Onda 3,
-mas se o projeto emitir segredo em log (AP-07, CRITICAL) ela roda na Onda 1.
+**A onda é propriedade do finding, não do TR.** Cada AP declara sua onda padrão; a onda de um TR é
+a do finding de **maior severidade** que ele resolve — suba ou desça o rótulo conforme necessário,
+e não agende TR que nenhum finding acione. Sobe: logging é Onda 3, mas com segredo em log (AP-07,
+CRITICAL) roda na Onda 1. Desce: TR-06 é rotulado Onda 1, mas sem AP-06 e com AP-13 (HIGH) roda na
+Onda 2 — e a Onda 1, sem TR atribuído, é vazia.
 
 **Registre desvios.** Se atribuir a um finding severidade diferente da tabelada aqui, escreva
 o motivo no próprio finding. Uma severidade sem justificativa é uma opinião.
 
----
-
 ## Índice
 
-| AP | Nome | Sev. | Onda | TR |
-|---|---|---|---|---|
-| [AP-01](#ap-01) | Injection por concatenação de entrada externa | CRITICAL | 1 | TR-02 |
-| [AP-02](#ap-02) | Hardcoded secret e debug ligado no bootstrap | CRITICAL | 1 | TR-01 |
-| [AP-03](#ap-03) | Credencial ou PII na serialização de resposta | CRITICAL | 1 | TR-04 |
-| [AP-04](#ap-04) | Derivação de senha quebrada ou ausente | CRITICAL | 1 | TR-03 |
-| [AP-05](#ap-05) | Rota privilegiada sem autenticação verificável | CRITICAL | 1 | TR-05 |
-| [AP-06](#ap-06) | God class / god module | CRITICAL | 1 | TR-06 |
-| [AP-07](#ap-07) | Segredo ou PII emitido em log | CRITICAL | 1 | TR-14 |
-| [AP-08](#ap-08) | Lógica de negócio fora da camada de serviço | HIGH | 2 | TR-07 |
-| [AP-09](#ap-09) | Acoplamento a dependência concreta, sem injeção | HIGH | 2 | TR-09 |
-| [AP-10](#ap-10) | Estado global mutável compartilhado | HIGH | 2 | TR-09 |
-| [AP-11](#ap-11) | Escrita multi-etapa sem fronteira transacional | HIGH | 2 | TR-10 |
-| [AP-12](#ap-12) | Validação de domínio inline no handler | HIGH | 2 | TR-08 |
-| [AP-13](#ap-13) | Rota acoplada diretamente ao ORM ou driver | HIGH | 2 | TR-06 |
-| [AP-14](#ap-14) | Mass assignment / bind não filtrado de entrada | HIGH | 2 | TR-08 |
-| [AP-15](#ap-15) | N+1 aninhado | MEDIUM | 3 | TR-11 |
-| [AP-16](#ap-16) | Deprecated API usage | MEDIUM | 3 | TR-12 |
-| [AP-17](#ap-17) | Duplicação com a abstração correta morta no repositório | MEDIUM | 3 | TR-15 |
-| [AP-18](#ap-18) | Captura genérica de exceção e vazamento de detalhe interno | MEDIUM | 3 | TR-13 |
-| [AP-19](#ap-19) | Saída de console como mecanismo de log | MEDIUM | 3 | TR-14 |
-| [AP-20](#ap-20) | Política de origem cruzada permissiva | MEDIUM | 3 | TR-18 |
-| [AP-21](#ap-21) | DDL e seed executados no boot da aplicação | MEDIUM | 3 | TR-16 |
-| [AP-22](#ap-22) | Listagem sem paginação | MEDIUM | 3 | TR-17 |
-| [AP-23](#ap-23) | Contrato de resposta inconsistente | MEDIUM | 3 | TR-13 |
-| [AP-24](#ap-24) | Ausência de rate limiting no endpoint de autenticação | MEDIUM | 3 | TR-05 |
-| [AP-25](#ap-25) | Magic numbers e vocabulários literais inline | LOW | 4 | TR-18 |
-| [AP-26](#ap-26) | Código morto e dependências declaradas e não usadas | LOW | 4 | TR-15 |
-| [AP-27](#ap-27) | Nomenclatura pobre e sombreamento de builtin | LOW | 4 | TR-18 |
-| [AP-28](#ap-28) | Ausência de infraestrutura de qualidade | LOW | — | reportado, não corrigido |
+| AP | Nome | Sev. | Onda | Aplica a | TR |
+|---|---|---|---|---|---|
+| [AP-01](#ap-01) | Injection por concatenação de entrada externa | CRITICAL | 1 | Persistência ou execução dinâmica | TR-02 |
+| [AP-02](#ap-02) | Hardcoded secret e debug ligado no bootstrap | CRITICAL | 1 | Universal | TR-01 |
+| [AP-03](#ap-03) | Credencial ou PII na serialização de resposta | CRITICAL | 1 | APIs que serializam entidades | TR-04 |
+| [AP-04](#ap-04) | Derivação de senha quebrada ou ausente | CRITICAL | 1 | Projetos com autenticação | TR-03 |
+| [AP-05](#ap-05) | Rota privilegiada sem autenticação verificável | CRITICAL | 1 | Universal | TR-05 |
+| [AP-06](#ap-06) | God class / god module | CRITICAL | 1 | Universal | TR-06 |
+| [AP-07](#ap-07) | Segredo ou PII emitido em log | CRITICAL | 1 | Universal | TR-14 |
+| [AP-08](#ap-08) | Lógica de negócio fora da camada de serviço | HIGH | 2 | Universal | TR-07 |
+| [AP-09](#ap-09) | Acoplamento a dependência concreta, sem injeção | HIGH | 2 | Universal | TR-09 |
+| [AP-10](#ap-10) | Estado global mutável compartilhado | HIGH | 2 | Universal | TR-09 |
+| [AP-11](#ap-11) | Escrita multi-etapa sem fronteira transacional | HIGH | 2 | ≥2 escritas relacionadas | TR-10 |
+| [AP-12](#ap-12) | Validação de domínio inline no handler | HIGH | 2 | Universal | TR-08 |
+| [AP-13](#ap-13) | Rota acoplada diretamente ao ORM ou driver | HIGH | 2 | Projetos com ORM ou driver direto | TR-06 |
+| [AP-14](#ap-14) | Mass assignment / bind não filtrado de entrada | HIGH | 2 | Universal | TR-08 |
+| [AP-15](#ap-15) | N+1 aninhado | MEDIUM | 3 | Projetos com persistência | TR-11 |
+| [AP-16](#ap-16) | Deprecated API usage | MEDIUM | 3 | Universal | TR-12 |
+| [AP-17](#ap-17) | Duplicação com a abstração correta morta no repositório | MEDIUM | 3 | Universal | TR-15 |
+| [AP-18](#ap-18) | Captura genérica de exceção e vazamento de detalhe interno | MEDIUM | 3 | Universal | TR-13 |
+| [AP-19](#ap-19) | Saída de console como mecanismo de log | MEDIUM | 3 | Universal | TR-14 |
+| [AP-20](#ap-20) | Política de origem cruzada permissiva | MEDIUM | 3 | APIs consumidas por browser | TR-18 |
+| [AP-21](#ap-21) | DDL e seed executados no boot da aplicação | MEDIUM | 3 | Projetos com persistência | TR-16 |
+| [AP-22](#ap-22) | Listagem sem paginação | MEDIUM | 3 | APIs de leitura de coleção | TR-17 |
+| [AP-23](#ap-23) | Contrato de resposta inconsistente | MEDIUM | 3 | APIs | TR-13 |
+| [AP-24](#ap-24) | Ausência de rate limiting no endpoint de autenticação | MEDIUM | 3 | APIs com autenticação | TR-05 |
+| [AP-25](#ap-25) | Magic numbers e vocabulários literais inline | LOW | 4 | Universal | TR-18 |
+| [AP-26](#ap-26) | Código morto e dependências declaradas e não usadas | LOW | 4 | Universal | TR-15 |
+| [AP-27](#ap-27) | Nomenclatura pobre e sombreamento de builtin | LOW | 4 | Universal | TR-18 |
+| [AP-28](#ap-28) | Ausência de infraestrutura de qualidade | LOW | — | Universal | reportado, não corrigido |
 
 Distribuição: **CRITICAL 7 · HIGH 7 · MEDIUM 10 · LOW 4**.
 

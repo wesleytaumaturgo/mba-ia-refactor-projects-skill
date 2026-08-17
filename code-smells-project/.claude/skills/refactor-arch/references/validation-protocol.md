@@ -32,7 +32,7 @@ parece regressão se o ambiente de validação não as tiver.
 
 ## 2. Capturar o baseline (fim da Fase 1)
 
-Execute **antes de qualquer escrita**, com o código intocado.
+Execute **antes de qualquer escrita em código do projeto**, com o código intocado.
 
 1. Suba a aplicação com o comando descoberto na §1.
 2. Para **cada** endpoint da tabela da Fase 1, envie uma requisição representativa e registre:
@@ -40,11 +40,31 @@ Execute **antes de qualquer escrita**, com o código intocado.
    corpo. Para rotas com parâmetro, use um identificador que exista.
 3. Trate as rotas destrutivas por último e, quando possível, contra dado descartável. Um smoke
    test que apaga a base destrói o insumo das verificações seguintes.
-4. Registre o SHA do commit de baseline. Ele é o ponto de retorno de última instância.
+4. Registre o SHA do commit de baseline como a primeira linha do registro de ondas da §6.1.
 
-Guarde o baseline em memória de trabalho e reproduza-o no relatório da Fase 2 em forma
-resumida — contagem por método e por status. Sem isso, o humano no gate não tem como saber o
-que a Fase 3 promete preservar.
+**Grave o baseline em `BASELINE_PATH`** — o caminho resolvido nas pré-condições, ancorado na raiz
+do repositório. Um registro por endpoint, com método, path, status code e shape do corpo: é o
+formato mínimo que os critérios 3 e 4 da §4 conseguem comparar. Contagem não serve — dois
+inteiros não reconstroem um contrato.
+
+```console
+$ cat "<BASELINE_PATH>"
+[
+  {"method":"GET",  "path":"/<collection>",      "status":200, "shape":{"items":"array","total":"number"}},
+  {"method":"GET",  "path":"/<collection>/<id>", "status":200, "shape":{"id":"number","name":"string"}},
+  {"method":"POST", "path":"/<collection>",      "status":201, "shape":{"id":"number"}, "note":"destructive-adjacent, ran last"}
+]
+```
+
+O baseline persistido é a **segunda exceção** à regra de não-escrita da Fase 1, pela mesma razão
+do relatório: artefato novo e aditivo, nenhum arquivo do projeto tocado. A razão de existir é o
+gate — o ponto do fluxo desenhado para pausar, e portanto o mais provável de atravessar uma
+quebra de sessão. Baseline em memória de trabalho não sobrevive a ela, e sem baseline a Fase 3
+perde o único critério que a torna falsificável.
+
+Reproduza-o no relatório da Fase 2 na forma resumida que o `report-template.md` define — contagem
+por método e por status, mais o total `M`. Sem isso, o humano no gate não tem como saber o que a
+Fase 3 promete preservar.
 
 Endpoint que já falha no baseline **não é regressão da Fase 3**. Marque-o como
 *pré-existente quebrado* agora; depois será tarde para provar que já estava assim.
@@ -81,28 +101,86 @@ critério é mais forte que o seguinte:
 | 2 | Método e path idênticos | **Vermelho.** Superfície alterada — proibido. |
 | 3 | Status code idêntico ao do baseline | **Vermelho**, salvo se declarado em Breaking changes. |
 | 4 | Shape do corpo idêntico | **Vermelho**, salvo se declarado em Breaking changes. |
-| 5 | Valores não-voláteis coerentes | Investigue: pode ser dado de teste, pode ser defeito. |
+| 5 | Valores não-voláteis coerentes | **Vermelho**, salvo se você nomear o dado de teste que o próprio smoke test alterou. Divergência não explicada é vermelha. |
 
 Diferenças esperadas e **não** contabilizadas como vermelho: timestamps, identificadores
 gerados, ordem de coleção quando o baseline também não a garante, e o 401/403 que TR-05
 introduz nas rotas que o relatório declarou como passando a exigir autenticação.
 
 Registre o resultado como uma contagem explícita: `N/M endpoints conformes`. Essa contagem é
-requisito da mensagem de commit — ver §6.
+requisito da mensagem de commit (§6) e alimenta o predicado da §4.1.
+
+### 4.1 Definição de "onda verde"
+
+Esta é a **única** definição do predicado em todo o pacote. Os demais arquivos referenciam esta
+seção; nenhum a reformula.
+
+> **Onda verde ⇔ os `M` endpoints do baseline estão conformes nos cinco critérios acima**, sendo
+> `M` o total capturado na §2. Contam como conformes as divergências que a seção Breaking changes
+> aprovada no gate declara — e só elas.
+
+Quatro consequências, todas deliberadas:
+
+- **Fração parcial não é verde.** `N < M` é vermelho, sem exceção e sem "verde com ressalva". O
+  predicado é binário porque governa a escolha entre `commit` e `git reset --hard`; um predicado
+  gradiente nessa posição transforma o histórico numa cadeia de pontos de retorno de
+  confiabilidade desconhecida, que é exatamente o que o princípio no topo deste arquivo proíbe.
+- **Endpoint não enumerável não reduz `M`.** O que nunca entrou no baseline não é comparável, e o
+  relatório da Fase 2 já declarou a lacuna (`project-analysis.md` §9). Mas o que **está** no
+  baseline e não pôde ser exercido agora é vermelho: baseline capturado é promessa feita.
+- **Endpoint *pré-existente quebrado* (§2) entra em `M` e conta como conforme** quando reproduz a
+  mesma falha do baseline. Ele faz parte do contrato; o contrato é que ele falha.
+- **Divergência declarada em Breaking changes é conforme; a não declarada é vermelha**, mesmo que
+  o resultado pareça melhor. O critério é conformidade com o aprovado, não gosto do executor.
+
+Numa onda verde, `N = M` por definição. A fração existe na mensagem de commit para que o número
+seja auditável, não para admitir resultado parcial.
+
+### 4.2 Os três estados de onda
+
+Toda onda termina em **exatamente um** destes estados, cada um com marcador próprio:
+
+| Estado | Marcador | Significado | Commit | Linha no registro (§6.1) |
+|---|---|---|---|---|
+| **verde** | `✓` | Executou e o smoke test conformou (`M/M`, §4.1) | sim | `green`, com SHA |
+| **vazia** | `—` | O plano não atribui TR algum a esta onda: nada aplicado, nada validado | não | `empty`, sem SHA |
+| **vermelha** | `✗` | Executou e falhou — smoke test divergente, ou boot que não se recuperou | não | `RED`, sem SHA |
+
+> **Onda vazia ⇔ o plano de refatoração aprovado no gate não atribui nenhum TR a esta onda.**
+
+O critério é o **plano**, nunca a severidade. Ausência de finding daquela severidade é a causa
+típica de uma onda vazia, não a sua definição — e as duas coisas divergem: um TR pode ser
+atribuído a uma onda cuja severidade não tem finding algum, porque a onda de um TR é a onda do
+finding que o aciona (`SKILL.md`, "Ondas"). Definir vazia pela severidade faria essa onda ser
+pulada com um TR agendado dentro dela — tipicamente o TR-06 que constrói o esqueleto MVC, cuja
+ausência nenhum smoke test detecta, porque smoke test compara contrato de endpoint e não estrutura.
+
+**Onda vazia não é onda verde.** Nada foi aplicado, logo nada foi validado: não existe evidência
+de execução, e o princípio no topo deste arquivo proíbe declarar verde o que não rodou. Marcar
+`✓` uma onda vazia é falso positivo num artefato que vira evidência de critério de aceite.
+
+Uma onda vazia, portanto, **não gera commit** e **não entra no registro como linha `green`**. Ela
+consta como `empty` para que o registro continue sendo o relato completo da execução, e o alvo de
+rollback segue sendo a última linha `green` — a última onda **efetivamente** verde, que pode ser
+uma onda anterior ou o próprio baseline.
 
 ---
 
 ## 5. Cadência da Fase 3
 
-Quatro ondas, protocolo idêntico em todas:
+Quatro ondas; protocolo idêntico em todas as que o plano preencheu (as vazias pulam, §4.2):
 
 ```text
 Onda N
   ├─ para cada TR da onda:
-  │     aplicar o TR  →  BOOT  →  vermelho? conserte antes do próximo TR
-  └─ ao fim da onda:  SMOKE TEST completo contra o baseline
-        ├─ verde     →  commit  →  próxima onda
-        └─ vermelho  →  git reset --hard <último commit verde>  →  PARE E REPORTE
+  │     aplicar o TR  →  BOOT
+  │        ├─ verde     →  próximo TR
+  │        └─ vermelho  →  conserte (máx. 2 tentativas)
+  │              └─ não recuperou  →  ONDA VERMELHA, com o TR já isolado ─┐
+  └─ ao fim da onda:  SMOKE TEST completo contra o baseline               │
+        ├─ verde (§4.1: M/M)  →  commit  →  anote o SHA (§6.1)  →  próxima onda
+        └─ vermelho  ←──────────────────────────────────────────────────┘
+              └─ git reset --hard <última linha green do registro §6.1>  →  PARE E REPORTE
 ```
 
 **Por que boot por TR e smoke por onda.** O smoke test completo é caro; o boot é barato. Boot
@@ -128,26 +206,73 @@ Breaking changes aplicadas: <lista da seção aprovada no gate>."
 ```
 
 Sem a contagem de endpoints verificados, **não há commit** — o número é o que distingue uma
-onda validada de uma onda declarada validada. Se a contagem for parcial porque alguns endpoints
-não são enumeráveis, escreva a fração real e o motivo.
+onda validada de uma onda declarada validada. A contagem de um commit de onda é sempre `M/M`
+(§4.1); se o que você tem nas mãos é uma fração menor, não é um commit de onda, é uma onda
+vermelha ainda não reportada.
+
+### 6.1 Registro de ondas
+
+Mantenha na resposta ao usuário, atualizado a cada evento, um registro de quatro colunas. É ele
+que torna o alvo do rollback um **dado registrado**, e não uma dedução feita sob pressão:
+
+```console
+| stage    | sha       | smoke  | status |
+|----------|-----------|--------|--------|
+| baseline | <sha>     | —      | green  |
+| onda-1   | <sha>     | 15/15  | green  |
+| onda-2   | —         | —      | empty  |
+| onda-3   | —         | 12/15  | RED    |
+```
+
+`empty` é linha de relato, não ponto de retorno: só `green` é alvo de rollback (§4.2).
+
+Escreva a linha do baseline nas pré-condições, antes da Fase 1. Escreva a linha de cada onda
+imediatamente após o commit, colando o SHA que o `git commit` devolveu — não no fim da fase, não
+de memória.
+
+**Se o registro se perder** — ele vive na resposta ao usuário, e a Fase 3 é longa o bastante para
+atravessar uma quebra de sessão —, **reconstrua-o do log antes de qualquer decisão de rollback, e
+diga que reconstruiu.** A convenção de mensagem da §6 existe para isso:
+
+```console
+$ git log --oneline --grep '^refactor(onda-'    # ondas commitadas, da mais recente à mais antiga
+```
+
+Todo commit dessa convenção é uma onda verde por construção (§6 não admite commit sem smoke test
+verde), e a linha `Smoke test: N/M` da mensagem devolve a coluna `smoke`. O que **não** se recupera
+do log é a onda vazia e a vermelha — nenhuma das duas gera commit —, e nenhuma das duas é alvo de
+rollback. O alvo, portanto, sobrevive à perda do registro: é o commit mais recente da convenção,
+ou o baseline se não houver nenhum.
+
+> **O último commit verde é a última linha `green` deste registro, sempre.** O baseline ocupa
+> essa posição apenas enquanto for a única linha verde, isto é, enquanto a Onda 1 não tiver
+> commitado.
 
 ---
 
 ## 7. Rollback
 
-Onda vermelha:
+Onda vermelha — pelo smoke test da §4, ou pelo boot que não se recuperou no meio da onda
+(`SKILL.md`, protocolo de onda, passo 2):
 
 ```console
-$ git reset --hard <SHA do último commit verde>
+$ git reset --hard <sha of the last green row in the wave registry>
 ```
 
-Na Onda 1, o último commit verde é o **commit de baseline** — o reset descarta todo o trabalho
-da sessão. É o custo aceito do histórico linear, e a razão de o boot por TR existir.
+O alvo é **sempre** a última linha `green` do registro da §6.1, nunca o baseline por default. O
+baseline é o alvo em exatamente um caso: quando a **Onda 1** é a que falha, porque aí ele é a
+única linha verde que existe. Depois do commit da Onda 1, resetar para o baseline destrói
+trabalho verde já validado — o erro mais caro possível neste ponto, e o mais fácil de cometer,
+porque o SHA do baseline é o que está mais à mão.
+
+Quando é a Onda 1 que falha, o reset descarta todo o trabalho da sessão. É o custo aceito do
+histórico linear, e a razão de o boot por TR existir.
 
 Depois do reset, **pare**. Não retome, não tente uma variante, não pule para a próxima onda.
 Reporte:
 
-- Qual onda ficou vermelha e em qual critério da §4.
+- Qual onda ficou vermelha e por quê: o critério da §4 que divergiu, ou o TR cujo boot não se
+  recuperou nas duas tentativas.
 - Qual TR é o suspeito, com a evidência que aponta para ele (tipicamente o último boot verde).
 - O SHA para onde o repositório voltou e o que sobreviveu — as ondas anteriores continuam
   commitadas e válidas.

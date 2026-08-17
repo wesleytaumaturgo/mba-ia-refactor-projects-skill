@@ -13,10 +13,11 @@ o trecho que muda.
 
 ## Regras de execução
 
-- **Onda é propriedade do finding, não do TR.** O rótulo abaixo é o padrão; se num projeto o TR
-  resolve um finding de severidade maior, antecipe-o para a onda daquele finding — caso típico
-  de TR-14 quando existe AP-07.
-- **Ordem interna da Onda 1: TR-01 e TR-06 primeiro**, porque criam a estrutura de que os
+- **Onda é propriedade do finding, não do TR.** O rótulo de cada TR abaixo é o **padrão, não a
+  atribuição**: a onda de um TR é a do finding de maior severidade que ele resolve — sobe (TR-14
+  vai à Onda 1 quando existe AP-07) ou desce (TR-06 vai à Onda 2 quando há AP-13 e não há AP-06).
+  **TR que nenhum finding aciona não é agendado em onda alguma.**
+- **TR-01 e TR-06 primeiro, na onda que o plano lhes deu**, porque criam a estrutura de que os
   demais dependem. Aplicar TR-04 antes de haver camadas obriga a refazê-lo.
 - **Boot após cada TR.** O commit é o ponto de retorno; o boot é o localizador do defeito. Um
   boot vermelho depois de um TR custa um conserto; depois de seis, uma investigação.
@@ -737,8 +738,9 @@ apenas a página.
 
 ## TR-18 — Nomear literais, renomear identificadores, restringir origem
 
-**Onda 4 · Resolve AP-25, AP-27, AP-20 · Pré-condição:** as ondas 1 a 3 estão verdes e
-commitadas. Esta onda é a de menor risco e roda por último de propósito.
+**Onda 4 · Resolve AP-25, AP-27, AP-20 · Pré-condição:** as ondas anteriores que executaram estão
+verdes e commitadas; as vazias não bloqueiam. Esta onda é a de menor risco e roda por último de
+propósito.
 
 **Passos.**
 1. Promova cada literal com significado a constante nomeada ou enum, e mantenha o valor
