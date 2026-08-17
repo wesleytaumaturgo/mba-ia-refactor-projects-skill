@@ -9,7 +9,6 @@ um campo só atravessa a fronteira de saída se estiver nomeado abaixo.
 
 CAMPOS_PRODUTO = ("id", "nome", "descricao", "preco", "estoque", "categoria", "ativo", "criado_em")
 CAMPOS_USUARIO = ("id", "nome", "email", "tipo", "criado_em")
-CAMPOS_USUARIO_AUTENTICADO = ("id", "nome", "email", "tipo")
 CAMPOS_PEDIDO = ("id", "usuario_id", "status", "total", "criado_em")
 CAMPOS_ITEM_PEDIDO = ("produto_id", "produto_nome", "quantidade", "preco_unitario")
 
@@ -33,11 +32,6 @@ def usuario_dto(registro):
 
 def usuarios_dto(registros):
     return [usuario_dto(registro) for registro in registros]
-
-
-def usuario_autenticado_dto(registro):
-    """Identificação mínima do sujeito devolvida no fluxo de autenticação."""
-    return _projetar(registro, CAMPOS_USUARIO_AUTENTICADO)
 
 
 def item_pedido_dto(registro):

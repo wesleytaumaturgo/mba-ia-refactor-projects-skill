@@ -10,12 +10,14 @@ antes de TR-05, nenhuma decisão lia (finding F-002).
 
 from flask import g, request
 
+from models.usuario import PAPEL_ADMIN
 from middlewares.error_handler import resposta_de_erro
 from security.tokens import TokenExpirado, TokenInvalido, verificar
 
 PUBLICA = "publica"
 AUTENTICADA = "autenticada"
-ADMIN = "admin"
+# O papel vem do model, que e onde o vocabulario de dominio vive.
+ADMIN = PAPEL_ADMIN
 
 
 class PoliticaDeAcesso:

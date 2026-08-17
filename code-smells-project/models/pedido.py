@@ -19,9 +19,8 @@ def de_registro(row):
 
 
 def item_de_registro(row, produto_nome):
+    valores = {"produto_nome": produto_nome}
     return {
-        "produto_id": row["produto_id"],
-        "produto_nome": produto_nome,
-        "quantidade": row["quantidade"],
-        "preco_unitario": row["preco_unitario"],
+        campo: valores.get(campo, row[campo] if campo in row.keys() else None)
+        for campo in CAMPOS_ITEM
     }

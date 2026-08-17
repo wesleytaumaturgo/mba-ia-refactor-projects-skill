@@ -1,4 +1,5 @@
-from services.errors import CredencialInvalida, EntradaInvalida, LimiteDeTaxaExcedido
+from services.errors import CredencialInvalida, LimiteDeTaxaExcedido
+from validators.usuario_validator import CREDENCIAL
 
 
 class AuthService:
@@ -18,8 +19,8 @@ class AuthService:
         self._log = logger
 
     def autenticar(self, email, senha, chave_de_taxa):
-        if not email or not senha:
-            raise EntradaInvalida("Email e senha são obrigatórios")
+        credencial = CREDENCIAL.validate({"email": email, "senha": senha})
+        email, senha = credencial["email"], credencial["senha"]
 
         permitido, liberar_em = self._limitador.registrar_e_verificar(chave_de_taxa)
         if not permitido:
